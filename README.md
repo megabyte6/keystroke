@@ -1,6 +1,6 @@
 # caps
 
-> **CAPS** (Classroom Achievement Point System) is a simple, cross-platform graphical tool that rewards sustain typing on Typing.com with points on ClassDojo
+> **CAPS** (Classroom Achievement Point System) is a simple, cross-platform graphical tool that rewards consistent typing on Typing.com with points on ClassDojo
 
 ---
 
