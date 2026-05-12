@@ -707,6 +707,7 @@ dependencies = [
 name = "caps"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "slint",
  "slint-build",
 ]
