@@ -1,5 +1,172 @@
+import {
+    LineEdit,
+    VerticalBox,
+    HorizontalBox,
+    ScrollView,
+    Button,
+    AboutSlint,
+    Palette,
+    StandardButton,
+} from "std-widgets.slint";
+
 export component MainWindow inherits Window {
-    Text {
-        text: "Hello world";
+    preferred-width: 800px;
+    preferred-height: 600px;
+    title: "Caps";
+
+    MenuBar {
+        Menu {
+            title: "Caps";
+
+            MenuItem {
+                title: @tr("About");
+                activated => about-popup.show();
+            }
+
+            MenuItem {
+                title: @tr("Check for Updates");
+            }
+
+            MenuSeparator { }
+
+            MenuItem {
+                title: @tr("Open Settings");
+                shortcut: @keys(Control + Comma);
+            }
+
+            MenuSeparator { }
+
+            MenuItem {
+                title: @tr("Quit");
+                shortcut: @keys(Control + Q);
+            }
+        }
+
+        Menu {
+            title: @tr("Action");
+
+            MenuItem {
+                title: @tr("Fetch Students");
+                shortcut: @keys(Control + R);
+            }
+        }
+
+        Menu {
+            title: @tr("Help");
+
+            MenuItem {
+                title: @tr("File a Bug Report...");
+                activated => Platform.open-url("https://github.com/megabyte6/caps/issues");
+            }
+        }
+    }
+
+    VerticalBox {
+        search := LineEdit {
+            placeholder-text: @tr("Search");
+        }
+
+        students := ScrollView { }
+    }
+
+    about-popup := PopupWindow {
+        width: root.width * 0.6;
+        height: root.height * 0.6;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            background: Palette.alternate-background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000088;
+
+            VerticalBox {
+                padding: 24px;
+                spacing: 12px;
+
+                Text {
+                    text: "CAPS";
+                    font-size: 28px;
+                    font-weight: 700;
+                    color: Palette.alternate-foreground;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "Classroom Achievement Point System";
+                    font-size: 13px;
+                    color: Palette.alternate-foreground;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: @tr("A simple cross-platform tool that rewards consistent typing with points.");
+                    font-size: 13px;
+                    color: Palette.alternate-foreground;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+
+                Rectangle {
+                    height: 2px;
+                    background: Palette.border;
+                }
+
+                HorizontalBox {
+                    VerticalBox {
+                        spacing: 4px;
+
+                        Text {
+                            text: @tr("Author") + ": Brayden Chan";
+                            font-size: 12px;
+                            color: Palette.alternate-foreground;
+                            horizontal-alignment: center;
+                        }
+
+                        Text {
+                            text: @tr("License") + ": GPL-3.0";
+                            font-size: 12px;
+                            color: Palette.alternate-foreground;
+                            horizontal-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => Platform.open-url("https://github.com/megabyte6/caps");
+
+                            Text {
+                                text: "github.com/megabyte6/caps";
+                                font-size: 12px;
+                                color: #89b4fa;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: self.min-width;
+                        border-width: 2px;
+                        border-color: Palette.border;
+
+                        AboutSlint { }
+                    }
+                }
+
+                HorizontalBox {
+                    alignment: center;
+
+                    StandardButton {
+                        kind: close;
+
+                        clicked => about-popup.close();
+                    }
+                }
+            }
+        }
     }
 }
