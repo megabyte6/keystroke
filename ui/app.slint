@@ -14,6 +14,12 @@ export component MainWindow inherits Window {
     preferred-height: 600px;
     title: "Caps";
 
+    callback check-for-updates();
+    callback open-settings();
+    callback quit();
+
+    callback fetch-students();
+
     MenuBar {
         Menu {
             title: "Caps";
@@ -25,6 +31,7 @@ export component MainWindow inherits Window {
 
             MenuItem {
                 title: @tr("Check for Updates");
+                activated => root.check-for-updates();
             }
 
             MenuSeparator { }
@@ -32,6 +39,7 @@ export component MainWindow inherits Window {
             MenuItem {
                 title: @tr("Open Settings");
                 shortcut: @keys(Control + Comma);
+                activated => root.open-settings();
             }
 
             MenuSeparator { }
@@ -39,6 +47,7 @@ export component MainWindow inherits Window {
             MenuItem {
                 title: @tr("Quit");
                 shortcut: @keys(Control + Q);
+                activated => root.quit();
             }
         }
 
@@ -48,6 +57,7 @@ export component MainWindow inherits Window {
             MenuItem {
                 title: @tr("Fetch Students");
                 shortcut: @keys(Control + R);
+                activated => root.fetch-students();
             }
         }
 
@@ -162,7 +172,6 @@ export component MainWindow inherits Window {
 
                     StandardButton {
                         kind: close;
-
                         clicked => about-popup.close();
                     }
                 }
