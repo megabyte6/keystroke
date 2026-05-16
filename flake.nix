@@ -84,9 +84,7 @@
       {
         pkgs,
         system,
-      }: let
-        lib = pkgs.lib;
-      in {
+      }: {
         caps = pkgs.rustPlatform.buildRustPackage {
           pname = "caps";
           version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
@@ -103,7 +101,7 @@
           meta = {
             description = "A simple, cross-platform graphical tool that rewards consistent typing on with points";
             homepage = "https://github.com/megabyte6/caps";
-            license = lib.licenses.gpl3;
+            license = pkgs.lib.licenses.gpl3;
           };
         };
 
