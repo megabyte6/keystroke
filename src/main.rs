@@ -1,13 +1,25 @@
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
-use slint::{LogicalSize, set_xdg_app_id};
+use slint::LogicalSize;
+use tracing::{error, info, warn};
+use tracing_subscriber::EnvFilter;
 
 slint::include_modules!();
 
 fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("caps=info,slint=warn")),
+        )
+        .init();
+
+    info!("starting app");
     let ctx = Rc::new(AppContext::new()?);
-    set_xdg_app_id("caps").context("failed to register XDG app ID")?;
+    if let Err(err) = slint::set_xdg_app_id("caps") {
+        warn!(error = %err, "failed to register XDG app ID");
+    }
     ctx.impl_callbacks();
     ctx.windows
         .main
@@ -18,14 +30,16 @@ fn main() -> Result<()> {
         .window()
         .set_size(LogicalSize::new(800.0, 600.0));
 
+    info!("running main window");
     ctx.windows.main.run().context("slint platform crashed")?;
 
+    info!("exiting app");
     Ok(())
 }
 
 fn save_settings_and_exit() {
     if let Err(err) = slint::quit_event_loop() {
-        eprintln!("quitting app resulted in error: {err}");
+        error!(error = %err, "quitting app resulted in error");
     }
 }
 
@@ -42,20 +56,22 @@ impl AppContext {
 
     fn impl_callbacks(self: &Rc<Self>) {
         self.windows.main.window().on_close_requested(|| {
+            info!("close requested");
             save_settings_and_exit();
             slint::CloseRequestResponse::HideWindow
         });
 
         self.windows
             .main
-            .on_check_for_updates(|| println!("check for updates not implemented yet"));
+            .on_check_for_updates(|| warn!("check for updates not implemented yet"));
 
         let settings_weak = self.windows.settings.as_weak();
         self.windows.main.on_open_settings(move || {
+            info!("opening settings window");
             if let Some(settings) = settings_weak.upgrade() {
                 let window = settings.window();
                 if let Err(err) = window.show() {
-                    eprintln!("failed to show settings window: {err}");
+                    error!("failed to show settings window: {err}");
                     return;
                 }
                 // some backends don't schedule an initial paint when showing a window from a menu.
@@ -65,12 +81,13 @@ impl AppContext {
         });
 
         self.windows.main.on_quit(|| {
+            info!("quit requested");
             save_settings_and_exit();
         });
 
         self.windows
             .main
-            .on_fetch_students(|| println!("fetch students not implemented yet"));
+            .on_fetch_students(|| warn!("fetch students not implemented yet"));
     }
 }
 
