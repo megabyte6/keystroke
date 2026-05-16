@@ -8,17 +8,19 @@ import {
     Palette,
     StandardButton,
 } from "std-widgets.slint";
+import { SettingsWindow } from "settings.slint";
+
+export { SettingsWindow }
 
 export component MainWindow inherits Window {
     preferred-width: 800px;
     preferred-height: 600px;
     title: "Caps";
 
-    callback check-for-updates();
-    callback open-settings();
-    callback quit();
-
-    callback fetch-students();
+    callback check-for-updates;
+    callback open-settings;
+    callback quit;
+    callback fetch-students;
 
     MenuBar {
         Menu {
