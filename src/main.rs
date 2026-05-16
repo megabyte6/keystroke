@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
-use slint::set_xdg_app_id;
+use slint::{LogicalSize, set_xdg_app_id};
 
 slint::include_modules!();
 
@@ -10,6 +10,14 @@ fn main() -> Result<()> {
     set_xdg_app_id("caps").context("failed to register XDG app ID")?;
     ctx.impl_callbacks();
 
+    ctx.windows
+        .main
+        .window()
+        .set_size(LogicalSize::new(1000.0, 800.0));
+    ctx.windows
+        .settings
+        .window()
+        .set_size(LogicalSize::new(800.0, 600.0));
     ctx.windows.main.run().context("slint platform crashed")?;
 
     Ok(())
