@@ -9,7 +9,6 @@ fn main() -> Result<()> {
     let ctx = Rc::new(AppContext::new()?);
     set_xdg_app_id("caps").context("failed to register XDG app ID")?;
     ctx.impl_callbacks();
-
     ctx.windows
         .main
         .window()
@@ -18,6 +17,7 @@ fn main() -> Result<()> {
         .settings
         .window()
         .set_size(LogicalSize::new(800.0, 600.0));
+
     ctx.windows.main.run().context("slint platform crashed")?;
 
     Ok(())
