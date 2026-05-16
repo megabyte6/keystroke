@@ -29,9 +29,12 @@
           }
       );
 
-    runtimeDeps = pkgs:
+    runtimeLibs = pkgs:
       with pkgs; [
         fontconfig
+        wayland
+        libxkbcommon
+        libGL
       ];
   in {
     overlays.default = final: prev: {
@@ -64,11 +67,12 @@
               rust-analyzer
               self.formatter.${system}
             ]
-            ++ (runtimeDeps pkgs);
+            ++ (runtimeLibs pkgs);
 
           env = {
             # Required by rust-analyzer
             RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (runtimeLibs pkgs);
           };
         };
       }
@@ -94,7 +98,7 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
           ];
-          buildInputs = runtimeDeps pkgs;
+          buildInputs = runtimeLibs pkgs;
 
           meta = {
             description = "A simple, cross-platform graphical tool that rewards consistent typing on with points";
