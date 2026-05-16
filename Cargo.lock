@@ -710,6 +710,7 @@ dependencies = [
  "anyhow",
  "slint",
  "slint-build",
+ "tracing",
 ]
 
 [[package]]
