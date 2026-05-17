@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use anyhow::{Context, Result};
 use slint::LogicalSize;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 use tracing_subscriber::EnvFilter;
 
 slint::include_modules!();
