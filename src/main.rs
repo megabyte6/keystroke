@@ -11,7 +11,7 @@ mod settings;
 
 slint::include_modules!();
 
-const APP_NAME: &str = "caps";
+const APP_NAME: &str = "keystroke";
 
 fn main() {
     tracing_subscriber::fmt()
