@@ -8,6 +8,8 @@ use crate::APP_NAME;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Settings {
+    pub typing_username: String,
+
     #[serde(skip)]
     loaded_from: PathBuf,
 }

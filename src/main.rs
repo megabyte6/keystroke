@@ -7,13 +7,15 @@ use tracing_subscriber::EnvFilter;
 
 use crate::settings::Settings;
 
+mod api;
 mod settings;
 
 slint::include_modules!();
 
 const APP_NAME: &str = "keystroke";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
@@ -31,6 +33,12 @@ fn main() {
         .unwrap_or_else(|err| error!(error = %err, "failed to register XDG app ID"));
     debug!("implement UI callbacks");
     ctx.impl_callbacks();
+
+    debug!("load typing.com api");
+    let _typing_session = api::typing::login(&ctx).await.unwrap_or_else(|err| {
+        error!(error = %err, "login to typing.com failed");
+        api::typing::Session::default()
+    });
 
     debug!("show main window");
     ctx.windows.main.run().unwrap_or_else(|err| {
