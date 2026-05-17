@@ -5,22 +5,29 @@ use slint::LogicalSize;
 use tracing::{debug, error, warn};
 use tracing_subscriber::EnvFilter;
 
+use crate::settings::Settings;
+
+mod settings;
+
 slint::include_modules!();
+
+const APP_NAME: &str = "caps";
 
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("caps=info,slint=warn")),
+                .unwrap_or_else(|_| EnvFilter::new(format!("{APP_NAME}=info,slint=warn"))),
         )
         .init();
 
     debug!("starting app");
+    debug!("loading settings");
     let ctx = Rc::new(AppContext::new().unwrap_or_else(|err| {
         error!(error = %err, "failed to create app context");
         std::process::exit(1);
     }));
-    slint::set_xdg_app_id("caps")
+    slint::set_xdg_app_id(APP_NAME)
         .unwrap_or_else(|err| error!(error = %err, "failed to register XDG app ID"));
     debug!("implement UI callbacks");
     ctx.impl_callbacks();
@@ -34,26 +41,35 @@ fn main() {
     debug!("exiting app");
 }
 
-fn save_settings_and_exit() {
+fn save_settings_and_exit(ctx: &AppContext) {
+    ctx.settings
+        .save()
+        .unwrap_or_else(|err| error!(error = %err, "failed to save settings"));
+
     slint::quit_event_loop()
         .unwrap_or_else(|err| error!(error = %err, "error encountered while quitting app"));
 }
 
 struct AppContext {
     windows: AppWindows,
+    settings: Settings,
 }
 
 impl AppContext {
     fn new() -> Result<Self> {
         Ok(Self {
             windows: AppWindows::new()?,
+            settings: Settings::load_or_default(),
         })
     }
 
     fn impl_callbacks(self: &Rc<Self>) {
-        self.windows.main.window().on_close_requested(|| {
+        let close_ctx = Rc::downgrade(self);
+        self.windows.main.window().on_close_requested(move || {
             debug!("close requested");
-            save_settings_and_exit();
+            if let Some(ctx) = close_ctx.upgrade() {
+                save_settings_and_exit(&ctx);
+            }
             slint::CloseRequestResponse::HideWindow
         });
 
@@ -76,9 +92,12 @@ impl AppContext {
             }
         });
 
-        self.windows.main.on_quit(|| {
+        let quit_ctx = Rc::downgrade(self);
+        self.windows.main.on_quit(move || {
             debug!("quit requested");
-            save_settings_and_exit();
+            if let Some(ctx) = quit_ctx.upgrade() {
+                save_settings_and_exit(&ctx);
+            }
         });
 
         self.windows
