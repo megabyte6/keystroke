@@ -1,32 +1,42 @@
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
-use slint::{LogicalSize, set_xdg_app_id};
+use slint::LogicalSize;
+use tracing::{debug, error, warn};
+use tracing_subscriber::EnvFilter;
 
 slint::include_modules!();
 
-fn main() -> Result<()> {
-    let ctx = Rc::new(AppContext::new()?);
-    set_xdg_app_id("caps").context("failed to register XDG app ID")?;
+fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("caps=info,slint=warn")),
+        )
+        .init();
+
+    debug!("starting app");
+    let ctx = Rc::new(AppContext::new().unwrap_or_else(|err| {
+        error!(error = %err, "failed to create app context");
+        std::process::exit(1);
+    }));
+    slint::set_xdg_app_id("caps")
+        .unwrap_or_else(|err| error!(error = %err, "failed to register XDG app ID"));
+    debug!("implement UI callbacks");
     ctx.impl_callbacks();
-    ctx.windows
-        .main
-        .window()
-        .set_size(LogicalSize::new(1000.0, 800.0));
-    ctx.windows
-        .settings
-        .window()
-        .set_size(LogicalSize::new(800.0, 600.0));
 
-    ctx.windows.main.run().context("slint platform crashed")?;
+    debug!("show main window");
+    ctx.windows.main.run().unwrap_or_else(|err| {
+        error!(error = %err, "slint platform crashed");
+        std::process::exit(1);
+    });
 
-    Ok(())
+    debug!("exiting app");
 }
 
 fn save_settings_and_exit() {
-    if let Err(err) = slint::quit_event_loop() {
-        eprintln!("quitting app resulted in error: {err}");
-    }
+    slint::quit_event_loop()
+        .unwrap_or_else(|err| error!(error = %err, "error encountered while quitting app"));
 }
 
 struct AppContext {
@@ -42,20 +52,22 @@ impl AppContext {
 
     fn impl_callbacks(self: &Rc<Self>) {
         self.windows.main.window().on_close_requested(|| {
+            debug!("close requested");
             save_settings_and_exit();
             slint::CloseRequestResponse::HideWindow
         });
 
         self.windows
             .main
-            .on_check_for_updates(|| println!("check for updates not implemented yet"));
+            .on_check_for_updates(|| warn!("check for updates not implemented yet"));
 
         let settings_weak = self.windows.settings.as_weak();
         self.windows.main.on_open_settings(move || {
+            debug!("opening settings window");
             if let Some(settings) = settings_weak.upgrade() {
                 let window = settings.window();
                 if let Err(err) = window.show() {
-                    eprintln!("failed to show settings window: {err}");
+                    error!(error = %err, "failed to show settings window");
                     return;
                 }
                 // some backends don't schedule an initial paint when showing a window from a menu.
@@ -65,12 +77,13 @@ impl AppContext {
         });
 
         self.windows.main.on_quit(|| {
+            debug!("quit requested");
             save_settings_and_exit();
         });
 
         self.windows
             .main
-            .on_fetch_students(|| println!("fetch students not implemented yet"));
+            .on_fetch_students(|| warn!("fetch students not implemented yet"));
     }
 }
 
@@ -81,9 +94,11 @@ struct AppWindows {
 
 impl AppWindows {
     fn new() -> Result<Self> {
-        Ok(Self {
-            main: MainWindow::new().context("failed to create main window")?,
-            settings: SettingsWindow::new().context("failed to create settings window")?,
-        })
+        let main = MainWindow::new().context("failed to create main window")?;
+        main.window().set_size(LogicalSize::new(1000.0, 800.0));
+        let settings = SettingsWindow::new().context("failed to create settings window")?;
+        settings.window().set_size(LogicalSize::new(800.0, 600.0));
+
+        Ok(Self { main, settings })
     }
 }

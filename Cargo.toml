@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 slint = "1.16.1"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [build-dependencies]
 slint-build = "1.16.1"
