@@ -31,8 +31,6 @@ pub async fn login(ctx: &AppContext) -> Result<Session> {
         .post("https://api.typing.com/teachers/auth/find")
         .header("X-App-Site", "typing")
         .json(&json!({
-            "login_type": "",
-            "teacher_id": "",
             "username": username
         }))
         .send()
@@ -53,10 +51,6 @@ pub async fn login(ctx: &AppContext) -> Result<Session> {
         .header("X-App-Site", "typing")
         .json(&json!({
             "teacher_id": teacher_id,
-            "language": "en",
-            "section_id": "",
-            "accept_invite": "",
-            "school_id": "",
             "password": password,
             "login_type": "username"
         }))
