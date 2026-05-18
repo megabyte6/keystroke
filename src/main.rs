@@ -25,24 +25,24 @@ async fn main() {
 
     debug!("starting app");
     debug!("loading settings");
-    let ctx = Rc::new(AppContext::new().unwrap_or_else(|err| {
-        error!(error = %err, "failed to create app context");
+    let ctx = Rc::new(AppContext::new().unwrap_or_else(|error| {
+        error!(%error, "failed to create app context");
         std::process::exit(1);
     }));
     slint::set_xdg_app_id(APP_NAME)
-        .unwrap_or_else(|err| error!(error = %err, "failed to register XDG app ID"));
+        .unwrap_or_else(|error| error!(%error, "failed to register XDG app ID"));
     debug!("implement UI callbacks");
     ctx.impl_callbacks();
 
     debug!("load typing.com api");
-    let _typing_session = api::typing::login(&ctx).await.unwrap_or_else(|err| {
-        error!(error = %err, "login to typing.com failed");
+    let _typing_session = api::typing::login(&ctx).await.unwrap_or_else(|error| {
+        error!(%error, "login to typing.com failed");
         api::typing::Session::default()
     });
 
     debug!("show main window");
-    ctx.windows.main.run().unwrap_or_else(|err| {
-        error!(error = %err, "slint platform crashed");
+    ctx.windows.main.run().unwrap_or_else(|error| {
+        error!(%error, "slint platform crashed");
         std::process::exit(1);
     });
 
@@ -52,10 +52,10 @@ async fn main() {
 fn save_settings_and_exit(ctx: &AppContext) {
     ctx.settings
         .save()
-        .unwrap_or_else(|err| error!(error = %err, "failed to save settings"));
+        .unwrap_or_else(|error| error!(%error, "failed to save settings"));
 
     slint::quit_event_loop()
-        .unwrap_or_else(|err| error!(error = %err, "error encountered while quitting app"));
+        .unwrap_or_else(|error| error!(%error, "failed to quit slint event loop"));
 }
 
 struct AppContext {
@@ -90,8 +90,8 @@ impl AppContext {
             debug!("opening settings window");
             if let Some(settings) = settings_weak.upgrade() {
                 let window = settings.window();
-                if let Err(err) = window.show() {
-                    error!(error = %err, "failed to show settings window");
+                if let Err(error) = window.show() {
+                    error!(%error, "failed to show settings window");
                     return;
                 }
                 // some backends don't schedule an initial paint when showing a window from a menu.
