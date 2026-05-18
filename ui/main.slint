@@ -15,7 +15,7 @@ export { SettingsWindow }
 export component MainWindow inherits Window {
     preferred-width: 1000px;
     preferred-height: 800px;
-    title: "Caps";
+    title: "Keystroke";
     forward-focus: search;
 
     callback check-for-updates;
@@ -25,7 +25,7 @@ export component MainWindow inherits Window {
 
     MenuBar {
         Menu {
-            title: "Caps";
+            title: "Keystroke";
 
             MenuItem {
                 title: @tr("About");
@@ -69,7 +69,7 @@ export component MainWindow inherits Window {
 
             MenuItem {
                 title: @tr("File a Bug Report...");
-                activated => Platform.open-url("https://github.com/megabyte6/caps/issues");
+                activated => Platform.open-url("https://github.com/megabyte6/keystroke/issues");
             }
         }
     }
@@ -83,8 +83,8 @@ export component MainWindow inherits Window {
     }
 
     about-popup := PopupWindow {
-        width: root.width * 0.6;
-        height: root.height * 0.6;
+        width: root.width * 0.5;
+        height: root.height * 0.5;
         x: (root.width - self.width) / 2;
         y: (root.height - self.height) / 2;
         close-policy: close-on-click-outside;
@@ -104,7 +104,7 @@ export component MainWindow inherits Window {
                 spacing: 12px;
 
                 Text {
-                    text: "CAPS";
+                    text: "Keystroke";
                     font-size: 28px;
                     font-weight: 700;
                     color: Palette.alternate-foreground;
@@ -112,14 +112,7 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "Classroom Achievement Point System";
-                    font-size: 13px;
-                    color: Palette.alternate-foreground;
-                    horizontal-alignment: center;
-                }
-
-                Text {
-                    text: @tr("A simple cross-platform tool that rewards consistent typing with points.");
+                    text: @tr("A simple cross-platform graphical tool that rewards consistent typing with points.");
                     font-size: 13px;
                     color: Palette.alternate-foreground;
                     horizontal-alignment: center;
@@ -150,10 +143,10 @@ export component MainWindow inherits Window {
                         }
 
                         TouchArea {
-                            clicked => Platform.open-url("https://github.com/megabyte6/caps");
+                            clicked => Platform.open-url("https://github.com/megabyte6/keystroke");
 
                             Text {
-                                text: "github.com/megabyte6/caps";
+                                text: "github.com/megabyte6/keystroke";
                                 font-size: 12px;
                                 color: #89b4fa;
                                 horizontal-alignment: center;
