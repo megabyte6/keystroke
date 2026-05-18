@@ -8,6 +8,7 @@ use tracing_subscriber::EnvFilter;
 use crate::settings::Settings;
 
 mod api;
+mod secrets;
 mod settings;
 
 slint::include_modules!();
@@ -24,6 +25,9 @@ async fn main() {
         .init();
 
     debug!("starting app");
+    debug!("initialize keyring");
+    secrets::init_keyring();
+
     debug!("loading settings");
     let ctx = Rc::new(AppContext::new().unwrap_or_else(|error| {
         error!(%error, "failed to create app context");
@@ -49,11 +53,16 @@ async fn main() {
     debug!("exiting app");
 }
 
-fn save_settings_and_exit(ctx: &AppContext) {
+fn quit(ctx: &AppContext) {
+    debug!("save settings");
     ctx.settings
         .save()
         .unwrap_or_else(|error| error!(%error, "failed to save settings"));
 
+    debug!("unset default keyring store");
+    keyring_core::unset_default_store();
+
+    debug!("quit slint event loop");
     slint::quit_event_loop()
         .unwrap_or_else(|error| error!(%error, "failed to quit slint event loop"));
 }
@@ -76,7 +85,7 @@ impl AppContext {
         self.windows.main.window().on_close_requested(move || {
             debug!("close requested");
             if let Some(ctx) = close_ctx.upgrade() {
-                save_settings_and_exit(&ctx);
+                quit(&ctx);
             }
             slint::CloseRequestResponse::HideWindow
         });
@@ -104,7 +113,7 @@ impl AppContext {
         self.windows.main.on_quit(move || {
             debug!("quit requested");
             if let Some(ctx) = quit_ctx.upgrade() {
-                save_settings_and_exit(&ctx);
+                quit(&ctx);
             }
         });
 
