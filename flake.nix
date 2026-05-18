@@ -1,5 +1,5 @@
 {
-  description = "Nix flake for CAPS";
+  description = "Nix flake for Keystroke";
 
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
@@ -84,11 +84,9 @@
       {
         pkgs,
         system,
-      }: let
-        lib = pkgs.lib;
-      in {
-        caps = pkgs.rustPlatform.buildRustPackage {
-          pname = "caps";
+      }: {
+        keystroke = pkgs.rustPlatform.buildRustPackage {
+          pname = "keystroke";
           version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
 
           src = ./.;
@@ -101,13 +99,13 @@
           buildInputs = runtimeLibs pkgs;
 
           meta = {
-            description = "A simple, cross-platform graphical tool that rewards consistent typing on with points";
-            homepage = "https://github.com/megabyte6/caps";
-            license = lib.licenses.gpl3;
+            description = "A simple cross-platform graphical tool that rewards consistent typing with points";
+            homepage = "https://github.com/megabyte6/keystroke";
+            license = pkgs.lib.licenses.gpl3;
           };
         };
 
-        default = self.packages.${system}.caps;
+        default = self.packages.${system}.keystroke;
       }
     );
   };

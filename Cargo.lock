@@ -704,20 +704,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "caps"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "directories",
- "serde",
- "slint",
- "slint-build",
- "toml 1.1.2+spec-1.1.0",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "cc"
 version = "1.2.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2503,6 +2489,20 @@ dependencies = [
  "bitflags 2.11.1",
  "serde",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "keystroke"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "directories",
+ "serde",
+ "slint",
+ "slint-build",
+ "toml 1.1.2+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
