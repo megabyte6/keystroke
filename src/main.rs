@@ -1,11 +1,12 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use slint::LogicalSize;
+use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 use tracing_subscriber::EnvFilter;
 
-use crate::settings::Settings;
+use crate::{api::typing::Session, settings::Settings};
 
 mod api;
 mod secrets;
@@ -25,27 +26,44 @@ async fn main() {
         .init();
 
     debug!("starting app");
+
+    debug!("loading settings");
+    let settings = Arc::new(RwLock::new(Settings::load_or_default()));
+
     debug!("initialize keyring");
     secrets::init_keyring();
 
-    debug!("loading settings");
-    let ctx = Rc::new(AppContext::new().unwrap_or_else(|error| {
-        error!(%error, "failed to create app context");
+    debug!("load typing.com api");
+    let typing_username = settings.read().await.typing_username.clone();
+    let typing_session = match typing_username.as_deref() {
+        Some(username) => Session::login(username)
+            .await
+            .map_err(|error| {
+                warn!(%error, "failed to create typing.com session");
+                error
+            })
+            .ok(),
+        None => {
+            warn!("no typing.com username configured");
+            None
+        }
+    };
+
+    debug!("loading UI");
+    let windows = AppWindows::new().unwrap_or_else(|error| {
+        error!(%error, "failed to load UI windows");
         std::process::exit(1);
-    }));
+    });
     slint::set_xdg_app_id(APP_NAME)
         .unwrap_or_else(|error| error!(%error, "failed to register XDG app ID"));
     debug!("implement UI callbacks");
-    ctx.impl_callbacks();
-
-    debug!("load typing.com api");
-    let _typing_session = api::typing::login(&ctx).await.unwrap_or_else(|error| {
-        error!(%error, "login to typing.com failed");
-        api::typing::Session::default()
+    windows.impl_callbacks(AppContext {
+        settings: Arc::clone(&settings),
+        typing_session: typing_session.clone(),
     });
 
     debug!("show main window");
-    ctx.windows.main.run().unwrap_or_else(|error| {
+    windows.main.run().unwrap_or_else(|error| {
         error!(%error, "slint platform crashed");
         std::process::exit(1);
     });
@@ -53,12 +71,7 @@ async fn main() {
     debug!("exiting app");
 }
 
-fn quit(ctx: &AppContext) {
-    debug!("save settings");
-    ctx.settings
-        .save()
-        .unwrap_or_else(|error| error!(%error, "failed to save settings"));
-
+fn quit() {
     debug!("unset default keyring store");
     keyring_core::unset_default_store();
 
@@ -68,59 +81,8 @@ fn quit(ctx: &AppContext) {
 }
 
 struct AppContext {
-    windows: AppWindows,
-    settings: Settings,
-}
-
-impl AppContext {
-    fn new() -> Result<Self> {
-        Ok(Self {
-            windows: AppWindows::new()?,
-            settings: Settings::load_or_default(),
-        })
-    }
-
-    fn impl_callbacks(self: &Rc<Self>) {
-        let close_ctx = Rc::downgrade(self);
-        self.windows.main.window().on_close_requested(move || {
-            debug!("close requested");
-            if let Some(ctx) = close_ctx.upgrade() {
-                quit(&ctx);
-            }
-            slint::CloseRequestResponse::HideWindow
-        });
-
-        self.windows
-            .main
-            .on_check_for_updates(|| warn!("check for updates not implemented yet"));
-
-        let settings_weak = self.windows.settings.as_weak();
-        self.windows.main.on_open_settings(move || {
-            debug!("opening settings window");
-            if let Some(settings) = settings_weak.upgrade() {
-                let window = settings.window();
-                if let Err(error) = window.show() {
-                    error!(%error, "failed to show settings window");
-                    return;
-                }
-                // some backends don't schedule an initial paint when showing a window from a menu.
-                // request_redraw() ensures the first frame actually gets rendered.
-                window.request_redraw();
-            }
-        });
-
-        let quit_ctx = Rc::downgrade(self);
-        self.windows.main.on_quit(move || {
-            debug!("quit requested");
-            if let Some(ctx) = quit_ctx.upgrade() {
-                quit(&ctx);
-            }
-        });
-
-        self.windows
-            .main
-            .on_fetch_students(|| warn!("fetch students not implemented yet"));
-    }
+    settings: Arc<RwLock<Settings>>,
+    typing_session: Option<Session>,
 }
 
 struct AppWindows {
@@ -136,5 +98,56 @@ impl AppWindows {
         settings.window().set_size(LogicalSize::new(800.0, 600.0));
 
         Ok(Self { main, settings })
+    }
+
+    fn impl_callbacks(&self, ctx: AppContext) {
+        self.main.window().on_close_requested(move || {
+            debug!("close requested");
+            quit();
+
+            slint::CloseRequestResponse::HideWindow
+        });
+
+        let settings = Arc::clone(&ctx.settings);
+        self.settings.window().on_close_requested(move || {
+            debug!("close settings window");
+            debug!("save settings");
+            let settings = Arc::clone(&settings);
+            tokio::spawn(async move {
+                settings
+                    .read()
+                    .await
+                    .save()
+                    .unwrap_or_else(|error| error!(%error, "failed to save settings"));
+            });
+
+            slint::CloseRequestResponse::HideWindow
+        });
+
+        self.main
+            .on_check_for_updates(|| warn!("check for updates not implemented yet"));
+
+        let settings_weak = self.settings.as_weak();
+        self.main.on_open_settings(move || {
+            debug!("opening settings window");
+            if let Some(settings_window) = settings_weak.upgrade() {
+                let window = settings_window.window();
+                if let Err(error) = window.show() {
+                    error!(%error, "failed to show settings window");
+                    return;
+                }
+                // some backends don't schedule an initial paint when showing a window from a menu.
+                // request_redraw() ensures the first frame actually gets rendered.
+                window.request_redraw();
+            }
+        });
+
+        self.main.on_quit(move || {
+            debug!("quit requested");
+            quit();
+        });
+
+        self.main
+            .on_fetch_students(|| warn!("fetch students not implemented yet"));
     }
 }
