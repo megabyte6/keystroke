@@ -3,7 +3,7 @@ use std::{ops::Deref, sync::Arc};
 use anyhow::{Context, Result};
 use slint::LogicalSize;
 use tokio::sync::RwLock;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 use crate::{api::typing::Session, settings::Settings};
@@ -27,13 +27,13 @@ async fn main() {
 
     debug!("starting app");
 
-    debug!("loading settings");
+    info!("loading settings");
     let settings = Arc::new(RwLock::new(Settings::load_or_default()));
 
-    debug!("initialize keyring");
+    info!("initialize keyring");
     secrets::init_keyring();
 
-    debug!("load typing.com api");
+    info!("load typing.com api");
     let typing_session = Session::login(settings.read().await.deref())
         .await
         .map_err(|error| {
@@ -42,14 +42,14 @@ async fn main() {
         })
         .ok();
 
-    debug!("loading UI");
+    info!("loading ui");
     let windows = AppWindows::new().unwrap_or_else(|error| {
         error!(%error, "failed to load UI windows");
         std::process::exit(1);
     });
     slint::set_xdg_app_id(APP_NAME)
-        .unwrap_or_else(|error| error!(%error, "failed to register XDG app ID"));
-    debug!("implement UI callbacks");
+        .unwrap_or_else(|error| error!(%error, "failed to register XDG app id"));
+    debug!("implement ui callbacks");
     windows.impl_callbacks(AppContext {
         settings: Arc::clone(&settings),
         typing_session: typing_session.clone(),
@@ -61,7 +61,7 @@ async fn main() {
         std::process::exit(1);
     });
 
-    debug!("exiting app");
+    info!("exiting app");
 }
 
 fn quit() {
@@ -104,7 +104,7 @@ impl AppWindows {
         let settings = Arc::clone(&ctx.settings);
         self.settings.window().on_close_requested(move || {
             debug!("close settings window");
-            debug!("save settings");
+            info!("saving settings");
             let settings = Arc::clone(&settings);
             tokio::spawn(async move {
                 settings
