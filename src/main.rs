@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use anyhow::{Context, Result};
 use slint::LogicalSize;
@@ -34,20 +34,13 @@ async fn main() {
     secrets::init_keyring();
 
     debug!("load typing.com api");
-    let typing_username = settings.read().await.typing_username.clone();
-    let typing_session = match typing_username.as_deref() {
-        Some(username) => Session::login(username)
-            .await
-            .map_err(|error| {
-                warn!(%error, "failed to create typing.com session");
-                error
-            })
-            .ok(),
-        None => {
-            warn!("no typing.com username configured");
-            None
-        }
-    };
+    let typing_session = Session::login(settings.read().await.deref())
+        .await
+        .map_err(|error| {
+            warn!(%error, "failed to create typing.com session");
+            error
+        })
+        .ok();
 
     debug!("loading UI");
     let windows = AppWindows::new().unwrap_or_else(|error| {

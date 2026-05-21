@@ -4,11 +4,12 @@ use anyhow::{Context, Result};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
-use crate::APP_NAME;
+use crate::{APP_NAME, api::typing::TypingClass};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Settings {
     pub typing_username: Option<String>,
+    pub typing_class: Option<TypingClass>,
 
     #[serde(skip)]
     loaded_from: PathBuf,
