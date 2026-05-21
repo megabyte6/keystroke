@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use time::OffsetDateTime;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
@@ -137,13 +138,68 @@ impl Session {
                 let id = val
                     .get("id")
                     .and_then(|v| v.as_u64())
-                    .ok_or_else(|| anyhow!("missing `id` in json: {response_data}"))?;
+                    .ok_or_else(|| anyhow!("missing `id` in response json: {response_data}"))?;
                 let name = val
                     .get("name")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow!("missing `name` in json: {response_data}"))?
+                    .ok_or_else(|| anyhow!("missing `name` in response json: {response_data}"))?
                     .to_string();
                 Ok(TypingClass { id, name })
+            })
+            .collect()
+    }
+
+    pub async fn get_students(&self) -> anyhow::Result<Vec<Student>> {
+        let now = OffsetDateTime::now_utc() - Duration::from_hours(9);
+        let start = now - Duration::from_hours(1);
+        let response_data: Value = self
+            .client
+            .post("https://www.typing.com/apiv1/teacher/reports/run")
+            .bearer_auth(self.auth_token().await?)
+            .json(&json!({
+                "start": start.unix_timestamp(),
+                "end": now.unix_timestamp(),
+                "sections": [
+                    self.state.read().await.class.id
+                ],
+                "report": "activity",
+                "teacher_id": self.state.read().await.teacher.id
+            }))
+            .send()
+            .await?
+            .json()
+            .await?;
+        response_data
+            .pointer("/data")
+            .and_then(|val| val.as_array())
+            .ok_or_else(|| anyhow!("missing `/data` array in response json: {response_data}"))?
+            .iter()
+            .map(|val| {
+                let first_name = val
+                    .get("first_name")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        anyhow!("missing `first_name` in response json: {response_data}")
+                    })?
+                    .to_string();
+                let last_name = val
+                    .get("last_name")
+                    .and_then(|val| val.as_str())
+                    .ok_or_else(|| {
+                        anyhow!("missing `last_name` in response json: {response_data}")
+                    })?
+                    .to_string();
+                let time = val
+                    .get("time")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| anyhow!("missing `time` in response json: {response_data}"))?
+                    .parse::<u64>()
+                    .map(Duration::from_secs)?;
+                Ok(Student {
+                    first_name,
+                    last_name,
+                    time,
+                })
             })
             .collect()
     }
@@ -185,4 +241,11 @@ pub struct TypingClass {
 struct AuthState {
     token: RwLock<String>,
     refresh_lock: Mutex<()>,
+}
+
+#[derive(Debug)]
+pub struct Student {
+    first_name: String,
+    last_name: String,
+    time: Duration,
 }
