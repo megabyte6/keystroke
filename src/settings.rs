@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{APP_NAME, api::typing::TypingClass};
 
+const FILENAME: &str = "settings.toml";
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Settings {
     pub typing_username: Option<String>,
@@ -17,9 +19,14 @@ pub struct Settings {
 
 impl Settings {
     pub fn load_or_default() -> Self {
-        let path = ProjectDirs::from("", "", APP_NAME)
-            .map(|dirs| dirs.config_dir().join("settings.toml"))
-            .unwrap_or_else(|| PathBuf::from("settings.toml"));
+        let path = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|parent| parent.join(FILENAME)))
+            .filter(|path| path.is_file())
+            .or_else(|| {
+                ProjectDirs::from("", "", APP_NAME).map(|dirs| dirs.config_dir().join(FILENAME))
+            })
+            .unwrap_or_else(|| PathBuf::from(FILENAME));
         let mut settings: Settings = std::fs::read_to_string(&path)
             .ok()
             .and_then(|contents| toml::from_str(&contents).ok())
