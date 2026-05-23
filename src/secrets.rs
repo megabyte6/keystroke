@@ -1,4 +1,3 @@
-use anyhow::{Context, Result};
 use keyring_core::Entry;
 
 #[cfg(target_os = "macos")]
@@ -9,6 +8,28 @@ use dbus_secret_service_keyring_store::Store as PlatformStore;
 use windows_native_keyring_store::Store as PlatformStore;
 
 use crate::APP_NAME;
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("failed to create keyring entry")]
+    EntryCreate(#[source] keyring_core::Error),
+    #[error("failed to save {service} password, for '{username}'")]
+    SavePassword {
+        service: String,
+        username: String,
+        #[source]
+        source: keyring_core::Error,
+    },
+    #[error("{service} password for '{username}' not found in keyring")]
+    LoadPassword {
+        service: String,
+        username: String,
+        #[source]
+        source: keyring_core::Error,
+    },
+}
 
 #[derive(Debug, Clone)]
 pub enum SecretService {
@@ -29,20 +50,27 @@ pub fn init_keyring() {
 }
 
 fn entry(service: &SecretService, username: &str) -> Result<Entry> {
-    Entry::new(&format!("{APP_NAME}:{}", service.as_str()), username)
-        .context("failed to create keyring entry")
+    Entry::new(&format!("{APP_NAME}:{}", service.as_str()), username).map_err(Error::EntryCreate)
 }
 
 pub fn save_password(service: SecretService, username: &str, password: &str) -> Result<()> {
     entry(&service, username)?
         .set_password(password)
-        .with_context(|| format!("failed to save {} password", service.as_str()))
+        .map_err(|source| Error::SavePassword {
+            service: service.as_str().to_string(),
+            username: username.to_string(),
+            source,
+        })
 }
 
 pub fn load_password(service: SecretService, username: &str) -> Result<String> {
     entry(&service, username)?
         .get_password()
-        .with_context(|| format!("{} password not found in keyring", service.as_str()))
+        .map_err(|source| Error::LoadPassword {
+            service: service.as_str().to_string(),
+            username: username.to_string(),
+            source,
+        })
 }
 
 #[cfg(test)]

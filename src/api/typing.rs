@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{Context, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -15,6 +14,25 @@ use crate::{
 type TeacherId = u64;
 type ClassId = u64;
 
+type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Request(#[from] reqwest::Error),
+    #[error(transparent)]
+    Secret(#[from] secrets::Error),
+    #[error(transparent)]
+    ParseInt(#[from] std::num::ParseIntError),
+
+    #[error("missing `{field}` in response json: {json}")]
+    MissingJsonField { field: String, json: String },
+    #[error("no username found for typing.com")]
+    UsernameNotSet,
+    #[error("no selected class found for typing.com")]
+    SelectedClassNotSet,
+}
+
 #[derive(Debug, Clone)]
 pub struct Session {
     client: Client,
@@ -23,17 +41,17 @@ pub struct Session {
 }
 
 impl Session {
-    pub async fn login(settings: &Settings) -> Result<Session, LoginError> {
+    pub async fn login(settings: &Settings) -> Result<Session> {
         let client = Client::new();
 
         let username = settings
             .typing_username
             .clone()
-            .ok_or(LoginError::MissingUsername)?;
+            .ok_or(Error::UsernameNotSet)?;
         let selected_class = settings
             .typing_class
             .clone()
-            .ok_or(LoginError::MissingSelectedClass)?;
+            .ok_or(Error::SelectedClassNotSet)?;
         let response_data: Value = client
             .post("https://api.typing.com/teachers/auth/find")
             .header("X-App-Site", "typing")
@@ -47,7 +65,10 @@ impl Session {
         let teacher_id = response_data
             .pointer("/users/0/teacher_id")
             .and_then(|val| val.as_u64())
-            .ok_or(LoginError::MissingTeacherId(response_data.to_string()))?;
+            .ok_or(Error::MissingJsonField {
+                field: "teacher_id".to_string(),
+                json: response_data.to_string(),
+            })?;
 
         let session = Session {
             client,
@@ -69,7 +90,7 @@ impl Session {
         Ok(session)
     }
 
-    pub async fn auth_token(&self) -> anyhow::Result<String> {
+    pub async fn auth_token(&self) -> Result<String> {
         let token = self.auth.token.read().await.clone();
         if !token.is_empty() {
             return Ok(token);
@@ -79,7 +100,7 @@ impl Session {
         Ok(self.auth.token.read().await.clone())
     }
 
-    pub async fn refresh_access_token(&self) -> anyhow::Result<()> {
+    pub async fn refresh_access_token(&self) -> Result<()> {
         let snapshot = self.auth.token.read().await.clone();
         let _guard = self.auth.refresh_lock.lock().await;
 
@@ -90,10 +111,7 @@ impl Session {
         }
 
         let username = &self.state.read().await.teacher.username;
-        let password =
-            secrets::load_password(SecretService::TypingCom, username).with_context(|| {
-                format!("no password stored in keyring for typing.com user '{username}'")
-            })?;
+        let password = secrets::load_password(SecretService::TypingCom, username)?;
         let response_data: Value = self
             .client
             .post("https://api.typing.com/teachers/auth/login")
@@ -110,13 +128,16 @@ impl Session {
         let access_token = response_data
             .pointer("/data/access_token")
             .and_then(|val| val.as_str())
-            .ok_or_else(|| anyhow!("missing `access_token` in response json: {response_data}"))?;
+            .ok_or(Error::MissingJsonField {
+                field: "access_token".to_string(),
+                json: response_data.to_string(),
+            })?;
         *self.auth.token.write().await = access_token.to_string();
 
         Ok(())
     }
 
-    pub async fn get_classes(&self) -> anyhow::Result<Vec<TypingClass>> {
+    pub async fn get_classes(&self) -> Result<Vec<TypingClass>> {
         let response_data: Value = self
             .client
             .get(format!(
@@ -132,24 +153,34 @@ impl Session {
         response_data
             .pointer("/data")
             .and_then(|val| val.as_array())
-            .ok_or_else(|| anyhow!("missing `/data` array in response json: {response_data}"))?
+            .ok_or(Error::MissingJsonField {
+                field: "/data".to_string(),
+                json: response_data.to_string(),
+            })?
+            // .ok_or_else(|| anyhow!("missing `/data` array in response json: {response_data}"))?
             .iter()
             .map(|val| {
                 let id = val
                     .get("id")
                     .and_then(|v| v.as_u64())
-                    .ok_or_else(|| anyhow!("missing `id` in response json: {response_data}"))?;
+                    .ok_or(Error::MissingJsonField {
+                        field: "id".to_string(),
+                        json: response_data.to_string(),
+                    })?;
                 let name = val
                     .get("name")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow!("missing `name` in response json: {response_data}"))?
+                    .ok_or(Error::MissingJsonField {
+                        field: "name".to_string(),
+                        json: response_data.to_string(),
+                    })?
                     .to_string();
                 Ok(TypingClass { id, name })
             })
             .collect()
     }
 
-    pub async fn get_students(&self) -> anyhow::Result<Vec<Student>> {
+    pub async fn get_students(&self) -> Result<Vec<Student>> {
         let now = OffsetDateTime::now_utc() - Duration::from_hours(9);
         let start = now - Duration::from_hours(1);
         let response_data: Value = self
@@ -172,27 +203,35 @@ impl Session {
         response_data
             .pointer("/data")
             .and_then(|val| val.as_array())
-            .ok_or_else(|| anyhow!("missing `/data` array in response json: {response_data}"))?
+            .ok_or(Error::MissingJsonField {
+                field: "/data".to_string(),
+                json: response_data.to_string(),
+            })?
             .iter()
             .map(|val| {
                 let first_name = val
                     .get("first_name")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        anyhow!("missing `first_name` in response json: {response_data}")
+                    .ok_or(Error::MissingJsonField {
+                        field: "first_name".to_string(),
+                        json: response_data.to_string(),
                     })?
                     .to_string();
                 let last_name = val
                     .get("last_name")
                     .and_then(|val| val.as_str())
-                    .ok_or_else(|| {
-                        anyhow!("missing `last_name` in response json: {response_data}")
+                    .ok_or(Error::MissingJsonField {
+                        field: "last_name".to_string(),
+                        json: response_data.to_string(),
                     })?
                     .to_string();
                 let time = val
                     .get("time")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| anyhow!("missing `time` in response json: {response_data}"))?
+                    .ok_or(Error::MissingJsonField {
+                        field: "time".to_string(),
+                        json: response_data.to_string(),
+                    })?
                     .parse::<u64>()
                     .map(Duration::from_secs)?;
                 Ok(Student {
@@ -203,20 +242,6 @@ impl Session {
             })
             .collect()
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum LoginError {
-    #[error("no username found for typing.com")]
-    MissingUsername,
-    #[error("no selected class found for typing.com")]
-    MissingSelectedClass,
-    #[error("missing `teacher_id` in response json: {0}")]
-    MissingTeacherId(String),
-    #[error(transparent)]
-    Request(#[from] reqwest::Error),
-    #[error(transparent)]
-    Secret(#[from] anyhow::Error),
 }
 
 #[derive(Debug)]
