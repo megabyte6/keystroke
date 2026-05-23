@@ -75,7 +75,7 @@ impl Session {
             state: Arc::new(RwLock::new(SessionState {
                 teacher: Teacher {
                     id: teacher_id,
-                    username: username.to_string(),
+                    username: username.clone(),
                 },
                 class: selected_class,
             })),
@@ -157,7 +157,6 @@ impl Session {
                 field: "/data".to_owned(),
                 json: response_data.to_string(),
             })?
-            // .ok_or_else(|| anyhow!("missing `/data` array in response json: {response_data}"))?
             .iter()
             .map(|val| {
                 let id = val

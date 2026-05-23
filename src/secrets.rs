@@ -31,13 +31,13 @@ pub enum Error {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum SecretService {
     TypingCom,
 }
 
 impl SecretService {
-    fn as_str(&self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             Self::TypingCom => "typing.com",
         }
@@ -49,12 +49,12 @@ pub fn init_keyring() {
     keyring_core::set_default_store(store);
 }
 
-fn entry(service: &SecretService, username: &str) -> Result<Entry> {
+fn entry(service: SecretService, username: &str) -> Result<Entry> {
     Entry::new(&format!("{APP_NAME}:{}", service.as_str()), username).map_err(Error::EntryCreate)
 }
 
 pub fn save_password(service: SecretService, username: &str, password: &str) -> Result<()> {
-    entry(&service, username)?
+    entry(service, username)?
         .set_password(password)
         .map_err(|source| Error::SavePassword {
             service: service.as_str().to_owned(),
@@ -64,7 +64,7 @@ pub fn save_password(service: SecretService, username: &str, password: &str) -> 
 }
 
 pub fn load_password(service: SecretService, username: &str) -> Result<String> {
-    entry(&service, username)?
+    entry(service, username)?
         .get_password()
         .map_err(|source| Error::LoadPassword {
             service: service.as_str().to_owned(),

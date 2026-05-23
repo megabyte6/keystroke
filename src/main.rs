@@ -34,7 +34,7 @@ async fn main() {
     secrets::init_keyring();
 
     info!("load typing.com api");
-    let typing_session = Session::login(settings.read().await.deref())
+    let typing_session = Session::login(&*settings.read().await)
         .await
         .map_err(|error| {
             warn!(%error, "failed to create typing.com session");
@@ -50,7 +50,7 @@ async fn main() {
     slint::set_xdg_app_id(APP_NAME)
         .unwrap_or_else(|error| error!(%error, "failed to register XDG app id"));
     debug!("implement ui callbacks");
-    windows.impl_callbacks(AppContext {
+    windows.impl_callbacks(&AppContext {
         settings: Arc::clone(&settings),
         typing_session: typing_session.clone(),
     });
@@ -93,7 +93,7 @@ impl AppWindows {
         Ok(Self { main, settings })
     }
 
-    fn impl_callbacks(&self, ctx: AppContext) {
+    fn impl_callbacks(&self, ctx: &AppContext) {
         self.main.window().on_close_requested(move || {
             debug!("close requested");
             quit();

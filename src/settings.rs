@@ -37,9 +37,10 @@ impl Settings {
 
     pub fn save(&self) -> Result<()> {
         let path = if self.loaded_from.as_os_str().is_empty() {
-            ProjectDirs::from("", "", APP_NAME)
-                .map(|dirs| dirs.config_dir().join("settings.toml"))
-                .unwrap_or_else(|| PathBuf::from("settings.toml"))
+            ProjectDirs::from("", "", APP_NAME).map_or_else(
+                || PathBuf::from("settings.toml"),
+                |dirs| dirs.config_dir().join("settings.toml"),
+            )
         } else {
             self.loaded_from.clone()
         };
