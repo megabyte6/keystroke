@@ -66,7 +66,7 @@ impl Session {
             .pointer("/users/0/teacher_id")
             .and_then(|val| val.as_u64())
             .ok_or(Error::MissingJsonField {
-                field: "teacher_id".to_string(),
+                field: "teacher_id".to_owned(),
                 json: response_data.to_string(),
             })?;
 
@@ -129,10 +129,10 @@ impl Session {
             .pointer("/data/access_token")
             .and_then(|val| val.as_str())
             .ok_or(Error::MissingJsonField {
-                field: "access_token".to_string(),
+                field: "access_token".to_owned(),
                 json: response_data.to_string(),
             })?;
-        *self.auth.token.write().await = access_token.to_string();
+        *self.auth.token.write().await = access_token.to_owned();
 
         Ok(())
     }
@@ -154,7 +154,7 @@ impl Session {
             .pointer("/data")
             .and_then(|val| val.as_array())
             .ok_or(Error::MissingJsonField {
-                field: "/data".to_string(),
+                field: "/data".to_owned(),
                 json: response_data.to_string(),
             })?
             // .ok_or_else(|| anyhow!("missing `/data` array in response json: {response_data}"))?
@@ -164,17 +164,17 @@ impl Session {
                     .get("id")
                     .and_then(|v| v.as_u64())
                     .ok_or(Error::MissingJsonField {
-                        field: "id".to_string(),
+                        field: "id".to_owned(),
                         json: response_data.to_string(),
                     })?;
                 let name = val
                     .get("name")
                     .and_then(|v| v.as_str())
                     .ok_or(Error::MissingJsonField {
-                        field: "name".to_string(),
+                        field: "name".to_owned(),
                         json: response_data.to_string(),
                     })?
-                    .to_string();
+                    .to_owned();
                 Ok(TypingClass { id, name })
             })
             .collect()
@@ -204,7 +204,7 @@ impl Session {
             .pointer("/data")
             .and_then(|val| val.as_array())
             .ok_or(Error::MissingJsonField {
-                field: "/data".to_string(),
+                field: "/data".to_owned(),
                 json: response_data.to_string(),
             })?
             .iter()
@@ -213,23 +213,23 @@ impl Session {
                     .get("first_name")
                     .and_then(|v| v.as_str())
                     .ok_or(Error::MissingJsonField {
-                        field: "first_name".to_string(),
+                        field: "first_name".to_owned(),
                         json: response_data.to_string(),
                     })?
-                    .to_string();
+                    .to_owned();
                 let last_name = val
                     .get("last_name")
                     .and_then(|val| val.as_str())
                     .ok_or(Error::MissingJsonField {
-                        field: "last_name".to_string(),
+                        field: "last_name".to_owned(),
                         json: response_data.to_string(),
                     })?
-                    .to_string();
+                    .to_owned();
                 let time = val
                     .get("time")
                     .and_then(|v| v.as_str())
                     .ok_or(Error::MissingJsonField {
-                        field: "time".to_string(),
+                        field: "time".to_owned(),
                         json: response_data.to_string(),
                     })?
                     .parse::<u64>()

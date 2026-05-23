@@ -57,8 +57,8 @@ pub fn save_password(service: SecretService, username: &str, password: &str) -> 
     entry(&service, username)?
         .set_password(password)
         .map_err(|source| Error::SavePassword {
-            service: service.as_str().to_string(),
-            username: username.to_string(),
+            service: service.as_str().to_owned(),
+            username: username.to_owned(),
             source,
         })
 }
@@ -67,8 +67,8 @@ pub fn load_password(service: SecretService, username: &str) -> Result<String> {
     entry(&service, username)?
         .get_password()
         .map_err(|source| Error::LoadPassword {
-            service: service.as_str().to_string(),
-            username: username.to_string(),
+            service: service.as_str().to_owned(),
+            username: username.to_owned(),
             source,
         })
 }
