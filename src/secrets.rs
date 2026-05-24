@@ -15,6 +15,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("failed to create keyring entry")]
     EntryCreate(#[source] keyring_core::Error),
+
     #[error("failed to save {service} password, for '{username}'")]
     SavePassword {
         service: String,
@@ -22,6 +23,7 @@ pub enum Error {
         #[source]
         source: keyring_core::Error,
     },
+
     #[error("{service} password for '{username}' not found in keyring")]
     LoadPassword {
         service: String,

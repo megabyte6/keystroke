@@ -20,15 +20,19 @@ type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error(transparent)]
     Request(#[from] reqwest::Error),
+
     #[error(transparent)]
     Secret(#[from] secrets::Error),
+
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
 
     #[error("missing `{field}` in response json: {json}")]
     MissingJsonField { field: String, json: String },
+
     #[error("no username found for typing.com")]
     UsernameNotSet,
+
     #[error("no selected class found for typing.com")]
     SelectedClassNotSet,
 }
