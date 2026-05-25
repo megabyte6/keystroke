@@ -184,6 +184,53 @@ impl Session {
     }
 
     pub async fn get_students(&self) -> Result<Vec<Student>> {
+        let response_data: Value = self
+            .client
+            .get(format!(
+                "https://api.typing.com/teachers/sections/{}?include=users",
+                self.state.read().await.class.id
+            ))
+            .bearer_auth(self.auth_token().await?)
+            .header("X-App-Site", "typing")
+            .send()
+            .await?
+            .json()
+            .await?;
+        response_data
+            .pointer("/data/students")
+            .and_then(|val| val.as_array())
+            .ok_or(Error::MissingJsonField {
+                field: "/data/students".to_owned(),
+                json: response_data.to_string(),
+            })?
+            .iter()
+            .map(|val| {
+                let first_name = val
+                    .get("first_name")
+                    .and_then(|v| v.as_str())
+                    .ok_or(Error::MissingJsonField {
+                        field: "first_name".to_owned(),
+                        json: response_data.to_string(),
+                    })?
+                    .to_owned();
+                let last_name = val
+                    .get("last_name")
+                    .and_then(|v| v.as_str())
+                    .ok_or(Error::MissingJsonField {
+                        field: "last_name".to_owned(),
+                        json: response_data.to_string(),
+                    })?
+                    .to_owned();
+                Ok(Student {
+                    first_name,
+                    last_name,
+                    time: None,
+                })
+            })
+            .collect()
+    }
+
+    pub async fn get_student_activity(&self) -> Result<Vec<Student>> {
         let now = OffsetDateTime::now_utc();
         let start = now - Duration::from_hours(1);
         let response_data: Value = self
@@ -240,7 +287,7 @@ impl Session {
                 Ok(Student {
                     first_name,
                     last_name,
-                    time,
+                    time: Some(time),
                 })
             })
             .collect()
@@ -271,9 +318,9 @@ struct AuthState {
     refresh_lock: Mutex<()>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Student {
     first_name: String,
     last_name: String,
-    time: Duration,
+    time: Option<Duration>,
 }
