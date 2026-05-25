@@ -184,7 +184,7 @@ impl Session {
     }
 
     pub async fn get_students(&self) -> Result<Vec<Student>> {
-        let now = OffsetDateTime::now_utc() - Duration::from_hours(9);
+        let now = OffsetDateTime::now_utc();
         let start = now - Duration::from_hours(1);
         let response_data: Value = self
             .client
