@@ -21,7 +21,9 @@ export component MainWindow inherits Window {
     callback check-for-updates;
     callback open-settings;
     callback quit;
-    callback fetch-students;
+
+    callback refresh;
+    callback give-points;
 
     MenuBar {
         Menu {
@@ -58,9 +60,14 @@ export component MainWindow inherits Window {
             title: @tr("Action");
 
             MenuItem {
-                title: @tr("Fetch Students");
+                title: @tr("Refresh");
                 shortcut: @keys(Control + R);
-                activated => root.fetch-students();
+                activated => root.refresh();
+            }
+
+            MenuItem {
+                title: @tr("Give points");
+                activated => root.give-points();
             }
         }
 
@@ -79,7 +86,29 @@ export component MainWindow inherits Window {
             placeholder-text: @tr("Search");
         }
 
-        students := ScrollView { }
+        ScrollView {
+            students := VerticalBox { }
+        }
+
+        HorizontalBox {
+            height: 4rem;
+
+            Button {
+                text: "Refresh";
+                preferred-width: 12rem;
+                clicked => root.refresh();
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            Button {
+                text: "Give points";
+                preferred-width: 12rem;
+                clicked => root.give-points();
+            }
+        }
     }
 
     about-popup := PopupWindow {

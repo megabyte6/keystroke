@@ -154,6 +154,9 @@ impl AppWindows {
         });
 
         self.main
-            .on_fetch_students(|| warn!("fetch students not implemented yet"));
+            .on_refresh(|| warn!("'Reload' action not implemented yet"));
+
+        self.main
+            .on_give_points(|| warn!("'Give points' action not implemented yet"));
     }
 }
