@@ -141,7 +141,7 @@ impl Session {
         Ok(())
     }
 
-    pub async fn get_classes(&self) -> Result<Vec<TypingClass>> {
+    pub async fn get_classes(&self) -> Result<Vec<Result<TypingClass>>> {
         let response_data: Value = self
             .client
             .get(format!(
@@ -154,13 +154,14 @@ impl Session {
             .await?
             .json()
             .await?;
-        response_data
+        let class_data = response_data
             .pointer("/data")
             .and_then(|val| val.as_array())
             .ok_or(Error::MissingJsonField {
                 field: "/data".to_owned(),
                 json: response_data.to_string(),
-            })?
+            })?;
+        Ok(class_data
             .iter()
             .map(|val| {
                 let id = val
@@ -180,10 +181,10 @@ impl Session {
                     .to_owned();
                 Ok(TypingClass { id, name })
             })
-            .collect()
+            .collect())
     }
 
-    pub async fn get_students(&self) -> Result<Vec<Student>> {
+    pub async fn get_students(&self) -> Result<Vec<Result<Student>>> {
         let response_data: Value = self
             .client
             .get(format!(
@@ -196,13 +197,14 @@ impl Session {
             .await?
             .json()
             .await?;
-        response_data
+        let student_data = response_data
             .pointer("/data/students")
             .and_then(|val| val.as_array())
             .ok_or(Error::MissingJsonField {
                 field: "/data/students".to_owned(),
                 json: response_data.to_string(),
-            })?
+            })?;
+        Ok(student_data
             .iter()
             .map(|val| {
                 let first_name = val
@@ -227,10 +229,10 @@ impl Session {
                     time: None,
                 })
             })
-            .collect()
+            .collect())
     }
 
-    pub async fn get_student_activity(&self) -> Result<Vec<Student>> {
+    pub async fn get_student_activity(&self) -> Result<Vec<Result<Student>>> {
         let now = OffsetDateTime::now_utc();
         let start = now - Duration::from_hours(1);
         let response_data: Value = self
@@ -250,13 +252,14 @@ impl Session {
             .await?
             .json()
             .await?;
-        response_data
+        let student_data = response_data
             .pointer("/data")
             .and_then(|val| val.as_array())
             .ok_or(Error::MissingJsonField {
                 field: "/data".to_owned(),
                 json: response_data.to_string(),
-            })?
+            })?;
+        Ok(student_data
             .iter()
             .map(|val| {
                 let first_name = val
@@ -290,7 +293,7 @@ impl Session {
                     time: Some(time),
                 })
             })
-            .collect()
+            .collect())
     }
 }
 
