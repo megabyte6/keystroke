@@ -27,13 +27,12 @@ async fn main() {
 
     debug!("starting app");
 
-    info!("loading settings");
     let settings = Arc::new(RwLock::new(Settings::load_or_default()));
+    info!("loaded settings");
 
-    info!("initialize keyring");
     secrets::init_keyring();
+    info!("initialized keyring");
 
-    info!("load typing.com api");
     let typing_session = Session::login(&*settings.read().await)
         .await
         .map_err(|error| {
@@ -41,27 +40,28 @@ async fn main() {
             error
         })
         .ok();
+    info!("loaded typing.com api");
 
-    info!("loading ui");
     let windows = AppWindows::new().unwrap_or_else(|error| {
         error!(%error, "failed to load UI windows");
         std::process::exit(1);
     });
+    info!("loaded ui");
     slint::set_xdg_app_id(APP_NAME)
         .unwrap_or_else(|error| error!(%error, "failed to register XDG app id"));
-    debug!("implement ui callbacks");
     windows.impl_callbacks(&AppContext {
         settings: Arc::clone(&settings),
         typing_session: typing_session.clone(),
     });
+    debug!("implemented ui callbacks");
 
-    debug!("show main window");
+    debug!("showing main window");
     windows.main.run().unwrap_or_else(|error| {
         error!(%error, "slint platform crashed");
         std::process::exit(1);
     });
 
-    info!("exiting app");
+    info!("bye :)");
 }
 
 fn quit() {
