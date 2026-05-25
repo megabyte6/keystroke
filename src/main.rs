@@ -33,14 +33,23 @@ async fn main() {
     secrets::init_keyring();
     info!("initialized keyring");
 
-    let typing_session = Session::login(&*settings.read().await)
-        .await
-        .map_err(|error| {
-            warn!(%error, "failed to create typing.com session");
-            error
-        })
-        .ok();
-    info!("loaded typing.com api");
+    let typing_session: Arc<RwLock<Option<Session>>> = Arc::new(RwLock::new(None));
+    tokio::spawn({
+        let typing_session = Arc::clone(&typing_session);
+        let settings = Arc::clone(&settings);
+        async move {
+            let session = Session::login(&*settings.read().await)
+                .await
+                .map_err(|error| {
+                    warn!(%error, "failed to create typing.com session");
+                    error
+                })
+                .ok();
+
+            *typing_session.write().await = session;
+            info!("logged into typing.com api");
+        }
+    });
 
     let windows = AppWindows::new().unwrap_or_else(|error| {
         error!(%error, "failed to load UI windows");
@@ -51,7 +60,7 @@ async fn main() {
         .unwrap_or_else(|error| error!(%error, "failed to register XDG app id"));
     windows.impl_callbacks(&AppContext {
         settings: Arc::clone(&settings),
-        typing_session: typing_session.clone(),
+        typing_session: Arc::clone(&typing_session),
     });
     debug!("implemented ui callbacks");
 
@@ -75,7 +84,7 @@ fn quit() {
 
 struct AppContext {
     settings: Arc<RwLock<Settings>>,
-    typing_session: Option<Session>,
+    typing_session: Arc<RwLock<Option<Session>>>,
 }
 
 struct AppWindows {
@@ -101,37 +110,41 @@ impl AppWindows {
             slint::CloseRequestResponse::HideWindow
         });
 
-        let settings = Arc::clone(&ctx.settings);
-        self.settings.window().on_close_requested(move || {
-            debug!("close settings window");
-            info!("saving settings");
-            let settings = Arc::clone(&settings);
-            tokio::spawn(async move {
-                settings
-                    .read()
-                    .await
-                    .save()
-                    .unwrap_or_else(|error| error!(%error, "failed to save settings"));
-            });
+        self.settings.window().on_close_requested({
+            let settings = Arc::clone(&ctx.settings);
+            move || {
+                debug!("close settings window");
+                info!("saving settings");
+                let settings = Arc::clone(&settings);
+                tokio::spawn(async move {
+                    settings
+                        .read()
+                        .await
+                        .save()
+                        .unwrap_or_else(|error| error!(%error, "failed to save settings"));
+                });
 
-            slint::CloseRequestResponse::HideWindow
+                slint::CloseRequestResponse::HideWindow
+            }
         });
 
         self.main
             .on_check_for_updates(|| warn!("check for updates not implemented yet"));
 
-        let settings_weak = self.settings.as_weak();
-        self.main.on_open_settings(move || {
-            debug!("opening settings window");
-            if let Some(settings_window) = settings_weak.upgrade() {
-                let window = settings_window.window();
-                if let Err(error) = window.show() {
-                    error!(%error, "failed to show settings window");
-                    return;
+        self.main.on_open_settings({
+            let settings_weak = self.settings.as_weak();
+            move || {
+                if let Some(settings_window) = settings_weak.upgrade() {
+                    let window = settings_window.window();
+                    if let Err(error) = window.show() {
+                        error!(%error, "failed to show settings window");
+                        return;
+                    }
+                    // some backends don't schedule an initial paint when showing a window from a menu.
+                    // request_redraw() ensures the first frame actually gets rendered.
+                    window.request_redraw();
+                    debug!("opened settings window");
                 }
-                // some backends don't schedule an initial paint when showing a window from a menu.
-                // request_redraw() ensures the first frame actually gets rendered.
-                window.request_redraw();
             }
         });
 
