@@ -4,12 +4,11 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use time::OffsetDateTime;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
-use crate::{
-    secrets::{self, SecretService},
-    settings::Settings,
-};
+use crate::{api::typing::auth::Auth, settings::Settings};
+
+mod auth;
 
 type TeacherId = u64;
 type ClassId = u64;
@@ -22,7 +21,7 @@ pub enum Error {
     Request(#[from] reqwest::Error),
 
     #[error(transparent)]
-    Secret(#[from] secrets::Error),
+    Auth(#[from] auth::Error),
 
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
@@ -41,7 +40,13 @@ pub enum Error {
 pub struct Session {
     client: Client,
     state: Arc<RwLock<SessionState>>,
-    auth: Arc<AuthState>,
+    auth: Auth,
+}
+
+#[derive(Debug)]
+struct SessionState {
+    teacher: Teacher,
+    class: TypingClass,
 }
 
 impl Session {
@@ -83,72 +88,31 @@ impl Session {
                 },
                 class: selected_class,
             })),
-            auth: Arc::new(AuthState {
-                // empty for now as `refresh_access_token()` will set one
-                token: RwLock::new(String::new()),
-                refresh_lock: Mutex::new(()),
-            }),
+            auth: Auth::new(),
         };
-        session.refresh_access_token().await?;
 
         Ok(session)
     }
 
     pub async fn auth_token(&self) -> Result<String> {
-        let token = self.auth.token.read().await.clone();
-        if !token.is_empty() {
-            return Ok(token);
-        }
+        let (username, teacher_id) = {
+            let state = self.state.read().await;
+            (state.teacher.username.clone(), state.teacher.id)
+        };
 
-        self.refresh_access_token().await?;
-        Ok(self.auth.token.read().await.clone())
-    }
-
-    pub async fn refresh_access_token(&self) -> Result<()> {
-        let snapshot = self.auth.token.read().await.clone();
-        let _guard = self.auth.refresh_lock.lock().await;
-
-        // if another task already refreshed, skip refreshing
-        let current = self.auth.token.read().await.clone();
-        if current != snapshot {
-            return Ok(());
-        }
-
-        let username = &self.state.read().await.teacher.username;
-        let password = secrets::load_password(SecretService::TypingCom, username)?;
-        let response_data: Value = self
-            .client
-            .post("https://api.typing.com/teachers/auth/login")
-            .header("X-App-Site", "typing")
-            .json(&json!({
-                "teacher_id": self.state.read().await.teacher.id,
-                "password": password,
-                "login_type": "username"
-            }))
-            .send()
-            .await?
-            .json()
-            .await?;
-        let access_token = response_data
-            .pointer("/data/access_token")
-            .and_then(|val| val.as_str())
-            .ok_or(Error::MissingJsonField {
-                field: "access_token".to_owned(),
-                json: response_data.to_string(),
-            })?;
-        *self.auth.token.write().await = access_token.to_owned();
-
-        Ok(())
+        // delegate to the auth module. it will fetch and cache/refresh the token as needed
+        Ok(self.auth.token(&self.client, &username, teacher_id).await?)
     }
 
     pub async fn get_classes(&self) -> Result<Vec<Result<TypingClass>>> {
+        let teacher_id = self.state.read().await.teacher.id;
+        let token = self.auth_token().await?;
         let response_data: Value = self
             .client
             .get(format!(
-                "https://api.typing.com/teachers/teachers/{}/classes",
-                self.state.read().await.teacher.id
+                "https://api.typing.com/teachers/teachers/{teacher_id}/classes"
             ))
-            .bearer_auth(self.auth_token().await?)
+            .bearer_auth(token)
             .header("X-App-Site", "typing")
             .send()
             .await?
@@ -185,13 +149,14 @@ impl Session {
     }
 
     pub async fn get_students(&self) -> Result<Vec<Result<Student>>> {
+        let class_id = self.state.read().await.class.id;
+        let token = self.auth_token().await?;
         let response_data: Value = self
             .client
             .get(format!(
-                "https://api.typing.com/teachers/sections/{}?include=users",
-                self.state.read().await.class.id
+                "https://api.typing.com/teachers/sections/{class_id}?include=users"
             ))
-            .bearer_auth(self.auth_token().await?)
+            .bearer_auth(token)
             .header("X-App-Site", "typing")
             .send()
             .await?
@@ -233,20 +198,25 @@ impl Session {
     }
 
     pub async fn get_student_activity(&self) -> Result<Vec<Result<Student>>> {
+        let token = self.auth_token().await?;
         let now = OffsetDateTime::now_utc();
         let start = now - Duration::from_hours(1);
+        let (class_id, teacher_id) = {
+            let state = self.state.read().await;
+            (state.class.id, state.teacher.id)
+        };
         let response_data: Value = self
             .client
             .post("https://www.typing.com/apiv1/teacher/reports/run")
-            .bearer_auth(self.auth_token().await?)
+            .bearer_auth(token)
             .json(&json!({
                 "start": start.unix_timestamp(),
                 "end": now.unix_timestamp(),
                 "sections": [
-                    self.state.read().await.class.id
+                    class_id
                 ],
                 "report": "activity",
-                "teacher_id": self.state.read().await.teacher.id
+                "teacher_id": teacher_id
             }))
             .send()
             .await?
@@ -297,12 +267,6 @@ impl Session {
     }
 }
 
-#[derive(Debug)]
-struct SessionState {
-    teacher: Teacher,
-    class: TypingClass,
-}
-
 #[derive(Debug, Clone)]
 struct Teacher {
     id: TeacherId,
@@ -313,12 +277,6 @@ struct Teacher {
 pub struct TypingClass {
     id: ClassId,
     name: String,
-}
-
-#[derive(Debug)]
-struct AuthState {
-    token: RwLock<String>,
-    refresh_lock: Mutex<()>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
