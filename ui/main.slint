@@ -1,16 +1,494 @@
 import {
-    LineEdit,
-    VerticalBox,
-    HorizontalBox,
-    ScrollView,
-    Button,
     AboutSlint,
+    Button,
+    ComboBox,
+    HorizontalBox,
+    LineEdit,
     Palette,
+    ScrollView,
     StandardButton,
+    VerticalBox,
 } from "std-widgets.slint";
 import { SettingsWindow } from "settings.slint";
 
 export { SettingsWindow }
+
+export global Theme {
+    in-out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+
+    // surfaces
+    out property <color> window-bg:   dark ? #1c1c1c : #f4f4f3;
+    out property <color> menubar-bg:  dark ? #1f1f1f : #ececeb;
+    out property <color> footer-bg:   dark ? #1c1c1c : #f4f4f3;
+    out property <color> divider:     dark ? #2a2a2a : #dcdcda;
+
+    // text
+    out property <color> text-primary:   dark ? #e8e8e8 : #1e1e1e;
+    out property <color> text-secondary: dark ? #7a7a7a : #6f6f6d;
+    out property <color> menubar-text:   dark ? #cfcfcf : #3a3a38;
+    out property <color> label:          dark ? #6a6a6a : #9a9a98;
+    out property <color> time-value:     dark ? #d2d2d2 : #3a3a38;
+    out property <color> summary-text:   dark ? #8a8a8a : #7a7a78;
+    out property <color> placeholder:    dark ? #6a6a6a : #9a9a98;
+
+    // cards
+    out property <color> card-bg:        dark ? #242424 : #ffffff;
+    out property <color> card-border:    dark ? #313131 : #e2e2e0;
+    out property <color> card-bg-sel:    dark ? #1d2a22 : #eaf4ee;
+    out property <color> accent:         #4a8f6b;
+    out property <color> chrome:         dark ? #6b7a8c : #5a6b7d;
+    out property <color> strip-neutral:  dark ? #333333 : #d8d8d6;
+    out property <color> circle-border:  dark ? #4a4a4a : #c2c2c0;
+    out property <color> hairline:       dark ? #3a3a3a : #dcdcda;
+
+    // points
+    out property <color> points-amber: dark ? #a8824a : #9a6f2e;
+    out property <color> points-green: dark ? #6fb58c : #2f8a5b;
+
+    // badges
+    out property <color> badge-bg:   dark ? #5b8fb524 : #4f8fc022;
+    out property <color> badge-dot:  dark ? #5f9bc4 : #4f8fc0;
+    out property <color> badge-text: dark ? #8fbdde : #2f6f9e;
+
+    // avatar
+    out property <color> avatar-bg:       dark ? #303030 : #ececeb;
+    out property <color> avatar-text:     dark ? #b0b0b0 : #5a5a58;
+    out property <color> avatar-bg-sel:   dark ? #4a8f6b33 : #4a8f6b26;
+    out property <color> avatar-text-sel: dark ? #8fd0ad : #2f8a5b;
+
+    // inputs / buttons / popup
+    out property <color> input-bg:       dark ? #2a2a2a : #ffffff;
+    out property <color> input-border:   dark ? #3a3a3a : #cfcfcd;
+    out property <color> popup-bg:       dark ? #232323 : #ffffff;
+    out property <color> popup-hover:    dark ? #2e2e2e : #f0f0ee;
+    out property <color> btn-bg:         dark ? #2d2d2d : #ffffff;
+    out property <color> btn-border:     dark ? #3d3d3d : #cfcfcd;
+    out property <color> btn-text:       dark ? #e0e0e0 : #2a2a28;
+    out property <color> btn-pri-bg:     dark ? #23332b : #e6f3ec;
+    out property <color> btn-pri-border: #4a8f6b;
+    out property <color> btn-pri-text:   dark ? #bfe6cf : #2f7a52;
+}
+
+export struct Student {
+    name: string,
+    username: string,
+    initials: string,
+    time-text: string,
+    points-text: string,
+    manually-added: bool,
+    selected: bool,
+}
+
+component SelectionCircle inherits Rectangle {
+    in property <bool> selected;
+    in property <length> size: 20px;
+
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: selected ? Theme.accent : transparent;
+    border-width: selected ? 0px : 1.5px;
+    border-color: Theme.circle-border;
+
+    Image {
+        source: @image-url("icons/success-small-symbolic.svg");
+        colorize: root.selected ? #ffffff : transparent;
+    }
+}
+
+enum Alignment {
+    center,
+    top-left,
+    top-center,
+    top-right,
+    center-left,
+    center-right,
+    bottom-left,
+    bottom-center,
+    bottom-right,
+}
+
+component StatusBadge {
+    in property <Alignment> alignment: Alignment.center;
+
+    property <length> current-width: touch-area.has-hover ? 9.2rem : 0.6rem;
+    property <length> current-height: touch-area.has-hover ? 2rem : 0.6rem;
+
+    pure function fraction-x(alignment: Alignment) -> float {
+        if (alignment == Alignment.top-left || alignment == Alignment.center-left || alignment == Alignment.bottom-left) {
+            return 0;
+        } else if (alignment == Alignment.top-right || alignment == Alignment.center-right || alignment == Alignment.bottom-right) {
+            return 1;
+        } else {
+            return 0.5;
+        }
+    }
+
+    pure function fraction-y(alignment: Alignment) -> float {
+        if (alignment == Alignment.top-left || alignment == Alignment.top-center || alignment == Alignment.top-right) {
+            return 0;
+        } else if (alignment == Alignment.bottom-left || alignment == Alignment.bottom-center || alignment == Alignment.bottom-right) {
+            return 1;
+        } else {
+            return 0.5;
+        }
+    }
+
+    touch-area := TouchArea {
+        width: root.current-width;
+        height: root.current-height;
+        x: (root.width - self.width) * fraction-x(alignment);
+        y: (root.height - self.height) * fraction-y(alignment);
+    }
+
+    Rectangle {
+        width: root.current-width;
+        height: root.current-height;
+        x: touch-area.x;
+        y: touch-area.y;
+        border-radius: self.height / 2;
+        background: touch-area.has-hover ? Theme.badge-bg : Theme.badge-dot;
+        clip: true;
+
+        animate width, height, x, y, background {
+            duration: 100ms;
+            easing: ease-out;
+        }
+
+        Text {
+            text: @tr("Manually added");
+            font-size: 0.9rem;
+            color: Theme.badge-text;
+            opacity: touch-area.has-hover ? 1 : 0;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+
+            animate opacity {
+                duration: 100ms;
+                easing: ease-in-out;
+                delay: 50ms;
+            }
+        }
+    }
+}
+
+component ComfyCard inherits Rectangle {
+    in property <Student> student;
+    callback clicked;
+
+    height: 10rem;
+    border-radius: 8px;
+    border-width: 2px;
+    border-color: student.selected ? Theme.accent : Theme.card-border;
+    background: student.selected ? Theme.card-bg-sel : Theme.card-bg;
+
+    TouchArea {
+        mouse-cursor: pointer;
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalBox {
+        padding: 14px;
+        spacing: 12px;
+
+        SelectionCircle {
+            selected: root.student.selected;
+        }
+
+        VerticalLayout {
+            spacing: 2px;
+            horizontal-stretch: 1;
+
+            Text {
+                text: root.student.name;
+                color: Theme.text-primary;
+                font-size: 1.25rem;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            Text {
+                text: "@" + root.student.username;
+                color: Theme.text-secondary;
+                font-size: 1rem;
+                font-family: "monospace";
+                overflow: elide;
+            }
+
+            Rectangle { }
+
+            HorizontalLayout {
+                spacing: 30px;
+                alignment: start;
+
+                VerticalLayout {
+                    spacing: 2px;
+
+                    Text {
+                        text: @tr("TYPING TIME");
+                        color: Theme.label;
+                        font-size: 0.85rem;
+                        letter-spacing: 0.07rem;
+                    }
+
+                    Text {
+                        text: root.student.time-text;
+                        color: Theme.time-value;
+                        font-size: 1.2rem;
+                        font-weight: 600;
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 2px;
+
+                    Text {
+                        text: @tr("POINTS");
+                        color: Theme.label;
+                        font-size: 0.85rem;
+                        letter-spacing: 0.07rem;
+                    }
+
+                    Text {
+                        text: root.student.points-text;
+                        color: root.student.selected ? Theme.points-green : Theme.points-amber;
+                        font-size: 1.2rem;
+                        font-weight: 600;
+                    }
+                }
+            }
+        }
+
+        if root.student.manually-added: StatusBadge {
+            alignment: Alignment.top-right;
+            horizontal-stretch: 0;
+        }
+    }
+}
+
+component CompactCard inherits Rectangle {
+    in property <Student> student;
+    callback clicked;
+
+    height: 6rem;
+    border-radius: 8px;
+    border-width: 2px;
+    border-color: student.selected ? Theme.accent : Theme.card-border;
+    background: student.selected ? Theme.card-bg-sel : Theme.card-bg;
+
+    TouchArea {
+        mouse-cursor: pointer;
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    VerticalBox {
+        spacing: 3px;
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: self.width / 2;
+                background: root.student.selected ? Theme.avatar-bg-sel : Theme.avatar-bg;
+
+                Text {
+                    text: root.student.initials;
+                    color: root.student.selected ? Theme.avatar-text-sel : Theme.avatar-text;
+                    font-size: 12px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            VerticalLayout {
+                spacing: 1px;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.student.name;
+                    color: Theme.text-primary;
+                    font-size: 1.12rem;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: "@" + root.student.username;
+                    color: Theme.text-secondary;
+                    font-size: 0.9rem;
+                    font-family: "monospace";
+                    overflow: elide;
+                }
+            }
+
+            SelectionCircle {
+                selected: root.student.selected;
+                size: 18px;
+            }
+        }
+
+        Rectangle { }
+
+        HorizontalLayout {
+            if root.student.manually-added: StatusBadge {
+                alignment: Alignment.center-left;
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            HorizontalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: root.student.time-text + " ·";
+                    color: Theme.text-secondary;
+                    font-size: 1rem;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.student.points-text;
+                    color: root.student.selected ? Theme.points-green : Theme.points-amber;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+component AccentStripCard inherits Rectangle {
+    in property <Student> student;
+    callback clicked;
+
+    height: 9rem;
+    border-radius: 6px;
+    border-width: 2px;
+    border-color: student.selected ? Theme.accent : Theme.card-border;
+    background: student.selected ? Theme.card-bg-sel : Theme.card-bg;
+    clip: true;
+
+    TouchArea {
+        mouse-cursor: pointer;
+
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        Rectangle {
+            width: 5px;
+            background: root.student.selected ? Theme.accent : Theme.strip-neutral;
+        }
+
+        VerticalBox {
+            spacing: 0px;
+
+            HorizontalBox {
+                VerticalLayout {
+                    spacing: 2px;
+
+                    HorizontalLayout {
+                        spacing: 0.5rem;
+
+                        Text {
+                            text: root.student.name;
+                            color: Theme.text-primary;
+                            font-size: 1.25rem;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+
+                        if root.student.manually-added: StatusBadge {
+                            alignment: Alignment.center-left;
+                        }
+                    }
+
+                    Text {
+                        text: "@" + root.student.username;
+                        color: Theme.text-secondary;
+                        font-size: 1rem;
+                        font-family: "monospace";
+                        overflow: elide;
+                    }
+                }
+
+                SelectionCircle {
+                    selected: root.student.selected;
+                }
+            }
+
+            Rectangle { }
+
+            HorizontalBox {
+                alignment: start;
+
+                HorizontalLayout {
+                    spacing: 6px;
+
+                    Text {
+                        text: @tr("TIME");
+                        color: Theme.label;
+                        font-size: 0.9rem;
+                        letter-spacing: 0.07rem;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.student.time-text;
+                        color: Theme.time-value;
+                        font-size: 1.15rem;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Rectangle {
+                    width: 1.75px;
+                    height: 1.3rem;
+                    background: Theme.hairline;
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: @tr("POINTS");
+                        color: Theme.label;
+                        font-size: 0.9rem;
+                        letter-spacing: 0.07rem;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.student.points-text;
+                        color: root.student.selected ? Theme.points-green : Theme.points-amber;
+                        font-size: 1.15rem;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum ViewMode {
+    comfortable,
+    compact,
+    accent-strip,
+}
 
 export component MainWindow inherits Window {
     preferred-width: 1000px;
@@ -18,10 +496,126 @@ export component MainWindow inherits Window {
     title: "Keystroke";
     forward-focus: search;
 
+    in property <ViewMode> view-mode: ViewMode.comfortable;
+    in-out property <[Student]> students: [
+        {
+            name: "Ava Thompson",
+            username: "avat",
+            initials: "AT",
+            time-text: "29 min",
+            points-text: "+15",
+            manually-added: false,
+            selected: true
+        },
+        {
+            name: "Liam Chen",
+            username: "lchen",
+            initials: "LC",
+            time-text: "33 min",
+            points-text: "+15",
+            manually-added: false,
+            selected: true
+        },
+        {
+            name: "Sofia Ramirez",
+            username: "sramirez",
+            initials: "SR",
+            time-text: "27 min",
+            points-text: "+15",
+            manually-added: true,
+            selected: true
+        },
+        {
+            name: "Noah Williams",
+            username: "noahw",
+            initials: "NW",
+            time-text: "24 min",
+            points-text: "+10",
+            manually-added: true,
+            selected: true
+        },
+        {
+            name: "Mia Johnson",
+            username: "miaj",
+            initials: "MJ",
+            time-text: "22 min",
+            points-text: "+10",
+            manually-added: false,
+            selected: true
+        },
+        {
+            name: "Ethan Park",
+            username: "epark",
+            initials: "EP",
+            time-text: "30 min",
+            points-text: "+15",
+            manually-added: false,
+            selected: true
+        },
+        {
+            name: "Olivia Nguyen",
+            username: "onguyen",
+            initials: "ON",
+            time-text: "19 min",
+            points-text: "+10",
+            manually-added: false,
+            selected: true
+        },
+        {
+            name: "Emma Davis",
+            username: "edavis",
+            initials: "ED",
+            time-text: "26 min",
+            points-text: "+15",
+            manually-added: true,
+            selected: true
+        },
+        {
+            name: "Mason Lee",
+            username: "mlee",
+            initials: "ML",
+            time-text: "8 min",
+            points-text: "+5",
+            manually-added: false,
+            selected: false
+        },
+        {
+            name: "Isabella Garcia",
+            username: "igarcia",
+            initials: "IG",
+            time-text: "14 min",
+            points-text: "+5",
+            manually-added: false,
+            selected: false
+        },
+        {
+            name: "James Wilson",
+            username: "jwilson",
+            initials: "JW",
+            time-text: "11 min",
+            points-text: "+5",
+            manually-added: false,
+            selected: false
+        },
+        {
+            name: "Henry Adams",
+            username: "hadams",
+            initials: "HA",
+            time-text: "16 min",
+            points-text: "+10",
+            manually-added: false,
+            selected: false
+        },
+    ];
+    in property <int> selection-count: 0;
+
     callback check-for-updates;
     callback open-settings;
     callback quit;
 
+    callback search-edited(string);
+    callback search-accepted(string);
+    callback toggle(int);
     callback refresh;
     callback give-points;
 
@@ -82,31 +676,132 @@ export component MainWindow inherits Window {
     }
 
     VerticalBox {
-        search := LineEdit {
-            placeholder-text: @tr("Search");
-        }
-
-        ScrollView {
-            students := VerticalBox { }
-        }
-
         HorizontalBox {
-            height: 4rem;
-
-            Button {
-                text: "Refresh";
-                preferred-width: 12rem;
-                clicked => root.refresh();
+            search := LineEdit {
+                placeholder-text: @tr("Search");
             }
 
+            ComboBox {
+                model: ["All students", "In current class", "Only selected"];
+                horizontal-stretch: 0;
+            }
+        }
+
+        if root.view-mode == ViewMode.comfortable: svComfy := ScrollView {
+            viewport-width: self.visible-width;
+            viewport-height: self.pad * 2 + Math.ceil(root.students.length / self.cols) * (dummyComfyCard.height + self.gap) - self.gap;
+            vertical-stretch: 1;
+
+            property <length> gap: 12px;
+            property <length> pad: 16px;
+            property <length> min-card-width: 248px;
+            property <length> available: self.visible-width - self.pad * 2;
+
+            property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
+            property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
+
+            dummyComfyCard := ComfyCard {
+                visible: false;
+            }
+
+            for s[i] in root.students: ComfyCard {
+                width: svComfy.card-width;
+                x: svComfy.pad + Math.mod(i, svComfy.cols) * (svComfy.card-width + svComfy.gap);
+                y: svComfy.pad + Math.floor(i / svComfy.cols) * (self.height + svComfy.gap);
+                student: s;
+                clicked => {
+                    root.students[i].selected = !root.students[i].selected;
+                    root.toggle(i);
+                }
+            }
+        }
+        if root.view-mode == ViewMode.compact: svCompact := ScrollView {
+            viewport-width: self.visible-width;
+            viewport-height: self.pad * 2 + Math.ceil(root.students.length / self.cols) * (dummyCompactCard.height + self.gap) - self.gap;
+            vertical-stretch: 1;
+
+            property <length> gap: 10px;
+            property <length> pad: 16px;
+            property <length> min-card-width: 212px;
+            property <length> available: self.visible-width - self.pad * 2;
+
+            property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
+            property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
+
+            dummyCompactCard := CompactCard {
+                visible: false;
+            }
+
+            for s[i] in root.students: CompactCard {
+                width: svCompact.card-width;
+                x: svCompact.pad + Math.mod(i, svCompact.cols) * (svCompact.card-width + svCompact.gap);
+                y: svCompact.pad + Math.floor(i / svCompact.cols) * (self.height + svCompact.gap);
+                student: s;
+                clicked => {
+                    root.students[i].selected = !root.students[i].selected;
+                    root.toggle(i);
+                }
+            }
+        }
+        if root.view-mode == ViewMode.accent-strip: svAccentStrip := ScrollView {
+            viewport-width: self.visible-width;
+            viewport-height: self.pad * 2 + Math.ceil(root.students.length / self.cols) * (dummyAccentStripCard.height + self.gap) - self.gap;
+            vertical-stretch: 1;
+
+            property <length> gap: 12px;
+            property <length> pad: 16px;
+            property <length> min-card-width: 320px;
+            property <length> available: self.visible-width - self.pad * 2;
+
+            property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
+            property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
+
+            dummyAccentStripCard := AccentStripCard {
+                visible: false;
+            }
+
+            for s[i] in root.students: AccentStripCard {
+                width: svAccentStrip.card-width;
+                x: svAccentStrip.pad + Math.mod(i, svAccentStrip.cols) * (svAccentStrip.card-width + svAccentStrip.gap);
+                y: svAccentStrip.pad + Math.floor(i / svAccentStrip.cols) * (self.height + svAccentStrip.gap);
+                student: s;
+                clicked => {
+                    root.students[i].selected = !root.students[i].selected;
+                    root.toggle(i);
+                }
+            }
+        }
+
+        Rectangle {
             Rectangle {
-                horizontal-stretch: 1;
+                width: 100%;
+                height: 1px;
+                y: 0;
+                background: Theme.divider;
             }
 
-            Button {
-                text: "Give points";
-                preferred-width: 12rem;
-                clicked => root.give-points();
+            HorizontalBox {
+                Button {
+                    text: @tr("Refresh");
+                    preferred-width: 10rem;
+                    clicked => root.refresh();
+                }
+
+                Text {
+                    text: root.selection-count + @tr(" selected");
+                    color: Theme.summary-text;
+                    font-size: 1.2rem;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+
+                Button {
+                    text: @tr("Give points");
+                    preferred-width: 10rem;
+                    primary: true;
+                    clicked => root.give-points();
+                }
             }
         }
     }

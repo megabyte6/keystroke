@@ -22,7 +22,25 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Theme {
+    #[default]
+    System,
+    Dark,
+    Light,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CardType {
+    #[default]
+    Comfortable,
+    Compact,
+    AccentStrip,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Settings {
+    pub theme: Theme,
+    pub card_type: CardType,
     pub typing_username: Option<String>,
     pub typing_class: Option<TypingClass>,
 
