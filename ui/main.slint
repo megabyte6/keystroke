@@ -88,7 +88,8 @@ component SelectionCircle inherits Rectangle {
 
     Image {
         source: @image-url("icons/success-small-symbolic.svg");
-        colorize: root.selected ? #ffffff : transparent;
+        colorize: #ffffff;
+        visible: root.selected;
     }
 }
 
