@@ -7,10 +7,14 @@ import {
     Palette,
     ScrollView,
     StandardButton,
+    StyleMetrics,
     VerticalBox,
 } from "std-widgets.slint";
 
-import { Student, ViewMode } from "types.slint";
+import {
+    Student,
+    ViewMode,
+} from "types.slint";
 import { SettingsWindow } from "settings.slint";
 
 export {
@@ -666,139 +670,137 @@ export component MainWindow inherits Window {
         }
     }
 
-    VerticalBox {
-        HorizontalBox {
-            search := LineEdit {
-                placeholder-text: @tr("Search");
-            }
+    VerticalLayout {
+        VerticalBox {
+            HorizontalBox {
+                search := LineEdit {
+                    placeholder-text: @tr("Search");
+                }
 
-            ComboBox {
-                model: ["All students", "In current class", "Only selected"];
-                horizontal-stretch: 0;
-            }
-        }
-
-        if root.view-mode == ViewMode.comfortable: svComfy := ScrollView {
-            viewport-width: self.visible-width;
-            viewport-height: self.pad * 2 + Math.ceil(root.students.length / self.cols) * (dummyComfyCard.height + self.gap) - self.gap;
-            vertical-stretch: 1;
-
-            property <length> gap: 12px;
-            property <length> pad: 16px;
-            property <length> min-card-width: 248px;
-            property <length> available: self.visible-width - self.pad * 2;
-
-            property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
-            property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
-
-            // must use a dummy card and manual viewport-height until
-            // https://github.com/slint-ui/slint/issues/10185 gets a fix
-            dummyComfyCard := ComfyCard {
-                visible: false;
-            }
-
-            for s[i] in root.students: ComfyCard {
-                width: svComfy.card-width;
-                x: svComfy.pad + Math.mod(i, svComfy.cols) * (svComfy.card-width + svComfy.gap);
-                y: svComfy.pad + Math.floor(i / svComfy.cols) * (self.height + svComfy.gap);
-                student: s;
-                clicked => {
-                    root.students[i].selected = !root.students[i].selected;
-                    root.toggle(i);
+                ComboBox {
+                    model: ["All students", "In current class", "Only selected"];
+                    horizontal-stretch: 0;
                 }
             }
-        }
-        if root.view-mode == ViewMode.compact: svCompact := ScrollView {
-            viewport-width: self.visible-width;
-            viewport-height: self.pad * 2 + Math.ceil(root.students.length / self.cols) * (dummyCompactCard.height + self.gap) - self.gap;
-            vertical-stretch: 1;
 
-            property <length> gap: 10px;
-            property <length> pad: 16px;
-            property <length> min-card-width: 212px;
-            property <length> available: self.visible-width - self.pad * 2;
+            if root.view-mode == ViewMode.comfortable: svComfy := ScrollView {
+                viewport-width: self.visible-width;
+                viewport-height: StyleMetrics.layout-padding * 2 + Math.ceil(root.students.length / self.cols) * (dummyComfyCard.height + self.gap) - self.gap;
+                vertical-stretch: 1;
 
-            property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
-            property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
+                property <length> gap: StyleMetrics.layout-spacing * 1.5;
+                property <length> min-card-width: 248px;
+                property <length> available: self.visible-width - StyleMetrics.layout-padding * 2;
 
-            // must use a dummy card and manual viewport-height until
-            // https://github.com/slint-ui/slint/issues/10185 gets a fix
-            dummyCompactCard := CompactCard {
-                visible: false;
-            }
+                property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
+                property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
 
-            for s[i] in root.students: CompactCard {
-                width: svCompact.card-width;
-                x: svCompact.pad + Math.mod(i, svCompact.cols) * (svCompact.card-width + svCompact.gap);
-                y: svCompact.pad + Math.floor(i / svCompact.cols) * (self.height + svCompact.gap);
-                student: s;
-                clicked => {
-                    root.students[i].selected = !root.students[i].selected;
-                    root.toggle(i);
+                // must use a dummy card and manual viewport-height until
+                // https://github.com/slint-ui/slint/issues/10185 gets a fix
+                dummyComfyCard := ComfyCard {
+                    visible: false;
+                }
+
+                for s[i] in root.students: ComfyCard {
+                    width: svComfy.card-width;
+                    x: StyleMetrics.layout-padding + Math.mod(i, svComfy.cols) * (svComfy.card-width + svComfy.gap);
+                    y: StyleMetrics.layout-padding + Math.floor(i / svComfy.cols) * (self.height + svComfy.gap);
+                    student: s;
+                    clicked => {
+                        root.students[i].selected = !root.students[i].selected;
+                        root.toggle(i);
+                    }
                 }
             }
-        }
-        if root.view-mode == ViewMode.accent-strip: svAccentStrip := ScrollView {
-            viewport-width: self.visible-width;
-            viewport-height: self.pad * 2 + Math.ceil(root.students.length / self.cols) * (dummyAccentStripCard.height + self.gap) - self.gap;
-            vertical-stretch: 1;
+            if root.view-mode == ViewMode.compact: svCompact := ScrollView {
+                viewport-width: self.visible-width;
+                viewport-height: StyleMetrics.layout-padding * 2 + Math.ceil(root.students.length / self.cols) * (dummyCompactCard.height + self.gap) - self.gap;
+                vertical-stretch: 1;
 
-            property <length> gap: 12px;
-            property <length> pad: 16px;
-            property <length> min-card-width: 320px;
-            property <length> available: self.visible-width - self.pad * 2;
+                property <length> gap: StyleMetrics.layout-spacing;
+                property <length> min-card-width: 212px;
+                property <length> available: self.visible-width - StyleMetrics.layout-padding * 2;
 
-            property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
-            property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
+                property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
+                property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
 
-            // must use a dummy card and manual viewport-height until
-            // https://github.com/slint-ui/slint/issues/10185 gets a fix
-            dummyAccentStripCard := AccentStripCard {
-                visible: false;
+                // must use a dummy card and manual viewport-height until
+                // https://github.com/slint-ui/slint/issues/10185 gets a fix
+                dummyCompactCard := CompactCard {
+                    visible: false;
+                }
+
+                for s[i] in root.students: CompactCard {
+                    width: svCompact.card-width;
+                    x: StyleMetrics.layout-padding + Math.mod(i, svCompact.cols) * (svCompact.card-width + svCompact.gap);
+                    y: StyleMetrics.layout-padding + Math.floor(i / svCompact.cols) * (self.height + svCompact.gap);
+                    student: s;
+                    clicked => {
+                        root.students[i].selected = !root.students[i].selected;
+                        root.toggle(i);
+                    }
+                }
             }
+            if root.view-mode == ViewMode.accent-strip: svAccentStrip := ScrollView {
+                viewport-width: self.visible-width;
+                viewport-height: StyleMetrics.layout-padding * 2 + Math.ceil(root.students.length / self.cols) * (dummyAccentStripCard.height + self.gap) - self.gap;
+                vertical-stretch: 1;
 
-            for s[i] in root.students: AccentStripCard {
-                width: svAccentStrip.card-width;
-                x: svAccentStrip.pad + Math.mod(i, svAccentStrip.cols) * (svAccentStrip.card-width + svAccentStrip.gap);
-                y: svAccentStrip.pad + Math.floor(i / svAccentStrip.cols) * (self.height + svAccentStrip.gap);
-                student: s;
-                clicked => {
-                    root.students[i].selected = !root.students[i].selected;
-                    root.toggle(i);
+                property <length> gap: StyleMetrics.layout-spacing * 1.5;
+                property <length> min-card-width: 320px;
+                property <length> available: self.visible-width - StyleMetrics.layout-padding * 2;
+
+                property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
+                property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
+
+                // must use a dummy card and manual viewport-height until
+                // https://github.com/slint-ui/slint/issues/10185 gets a fix
+                dummyAccentStripCard := AccentStripCard {
+                    visible: false;
+                }
+
+                for s[i] in root.students: AccentStripCard {
+                    width: svAccentStrip.card-width;
+                    x: StyleMetrics.layout-padding + Math.mod(i, svAccentStrip.cols) * (svAccentStrip.card-width + svAccentStrip.gap);
+                    y: StyleMetrics.layout-padding + Math.floor(i / svAccentStrip.cols) * (self.height + svAccentStrip.gap);
+                    student: s;
+                    clicked => {
+                        root.students[i].selected = !root.students[i].selected;
+                        root.toggle(i);
+                    }
                 }
             }
         }
 
         Rectangle {
-            Rectangle {
-                width: 100%;
-                height: 1px;
-                y: 0;
-                background: Theme.divider;
+            width: 100%;
+            height: 1.5px;
+            background: Theme.divider;
+        }
+
+        HorizontalBox {
+            padding: StyleMetrics.layout-padding * 2;
+
+            Button {
+                text: @tr("Refresh");
+                preferred-width: 10rem;
+                clicked => root.refresh();
             }
 
-            HorizontalBox {
-                Button {
-                    text: @tr("Refresh");
-                    preferred-width: 10rem;
-                    clicked => root.refresh();
-                }
+            Text {
+                text: root.selection-count + @tr(" selected");
+                color: Theme.summary-text;
+                font-size: 1.2rem;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
 
-                Text {
-                    text: root.selection-count + @tr(" selected");
-                    color: Theme.summary-text;
-                    font-size: 1.2rem;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                }
-
-                Button {
-                    text: @tr("Give points");
-                    preferred-width: 10rem;
-                    primary: true;
-                    clicked => root.give-points();
-                }
+            Button {
+                text: @tr("Give points");
+                preferred-width: 10rem;
+                primary: true;
+                clicked => root.give-points();
             }
         }
     }
