@@ -9,11 +9,17 @@ import {
     StandardButton,
     VerticalBox,
 } from "std-widgets.slint";
+
+import { Student, ViewMode } from "types.slint";
 import { SettingsWindow } from "settings.slint";
 
-export { SettingsWindow }
+export {
+    SettingsWindow,
+    Student,
+    ViewMode,
+}
 
-export global Theme {
+global Theme {
     in-out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
 
     // surfaces
@@ -67,16 +73,6 @@ export global Theme {
     out property <color> btn-pri-bg:     dark ? #23332b : #e6f3ec;
     out property <color> btn-pri-border: #4a8f6b;
     out property <color> btn-pri-text:   dark ? #bfe6cf : #2f7a52;
-}
-
-export struct Student {
-    name: string,
-    username: string,
-    initials: string,
-    time-text: string,
-    points-text: string,
-    manually-added: bool,
-    selected: bool,
 }
 
 component SelectionCircle inherits Rectangle {
@@ -484,12 +480,6 @@ component AccentStripCard inherits Rectangle {
     }
 }
 
-enum ViewMode {
-    comfortable,
-    compact,
-    accent-strip,
-}
-
 export component MainWindow inherits Window {
     preferred-width: 1000px;
     preferred-height: 800px;
@@ -700,6 +690,8 @@ export component MainWindow inherits Window {
             property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
             property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
 
+            // must use a dummy card and manual viewport-height until
+            // https://github.com/slint-ui/slint/issues/10185 gets a fix
             dummyComfyCard := ComfyCard {
                 visible: false;
             }
@@ -728,6 +720,8 @@ export component MainWindow inherits Window {
             property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
             property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
 
+            // must use a dummy card and manual viewport-height until
+            // https://github.com/slint-ui/slint/issues/10185 gets a fix
             dummyCompactCard := CompactCard {
                 visible: false;
             }
@@ -756,6 +750,8 @@ export component MainWindow inherits Window {
             property <int> cols: Math.max(1, Math.floor((self.available + self.gap) / (self.min-card-width + self.gap)));
             property <length> card-width: (self.available - self.gap * (self.cols - 1)) / self.cols;
 
+            // must use a dummy card and manual viewport-height until
+            // https://github.com/slint-ui/slint/issues/10185 gets a fix
             dummyAccentStripCard := AccentStripCard {
                 visible: false;
             }
