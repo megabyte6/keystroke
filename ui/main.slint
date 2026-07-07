@@ -11,11 +11,11 @@ import {
     VerticalBox,
 } from "std-widgets.slint";
 
+import { SettingsWindow } from "settings.slint";
 import {
     Student,
     ViewMode,
 } from "types.slint";
-import { SettingsWindow } from "settings.slint";
 
 export {
     SettingsWindow,
@@ -110,7 +110,7 @@ enum Alignment {
 }
 
 component StatusBadge {
-    in property <Alignment> alignment: Alignment.center;
+    in property <Alignment> alignment: center;
 
     property <length> current-width: touch-area.has-hover ? 9.2rem : 0.6rem;
     property <length> current-height: touch-area.has-hover ? 2rem : 0.6rem;
@@ -161,8 +161,6 @@ component StatusBadge {
             font-size: 0.9rem;
             color: Theme.badge-text;
             opacity: touch-area.has-hover ? 1 : 0;
-            vertical-alignment: center;
-            horizontal-alignment: center;
 
             animate opacity {
                 duration: 100ms;
@@ -264,7 +262,7 @@ component ComfyCard inherits Rectangle {
         }
 
         if root.student.manually-added: StatusBadge {
-            alignment: Alignment.top-right;
+            alignment: top-right;
             horizontal-stretch: 0;
         }
     }
@@ -340,31 +338,28 @@ component CompactCard inherits Rectangle {
         Rectangle { }
 
         HorizontalLayout {
+            spacing: 4px;
+            cross-axis-alignment: center;
+
             if root.student.manually-added: StatusBadge {
-                alignment: Alignment.center-left;
+                alignment: center-left;
             }
 
             Rectangle {
                 horizontal-stretch: 1;
             }
 
-            HorizontalLayout {
-                spacing: 4px;
+            Text {
+                text: root.student.time-text + " ·";
+                color: Theme.text-secondary;
+                font-size: 1rem;
+            }
 
-                Text {
-                    text: root.student.time-text + " ·";
-                    color: Theme.text-secondary;
-                    font-size: 1rem;
-                    vertical-alignment: center;
-                }
-
-                Text {
-                    text: root.student.points-text;
-                    color: root.student.selected ? Theme.points-green : Theme.points-amber;
-                    font-size: 1rem;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                }
+            Text {
+                text: root.student.points-text;
+                color: root.student.selected ? Theme.points-green : Theme.points-amber;
+                font-size: 1rem;
+                font-weight: 600;
             }
         }
     }
@@ -414,7 +409,7 @@ component AccentStripCard inherits Rectangle {
                         }
 
                         if root.student.manually-added: StatusBadge {
-                            alignment: Alignment.center-left;
+                            alignment: center-left;
                         }
                     }
 
@@ -439,20 +434,19 @@ component AccentStripCard inherits Rectangle {
 
                 HorizontalLayout {
                     spacing: 6px;
+                    cross-axis-alignment: center;
 
                     Text {
                         text: @tr("TIME");
                         color: Theme.label;
                         font-size: 0.9rem;
                         letter-spacing: 0.07rem;
-                        vertical-alignment: center;
                     }
 
                     Text {
                         text: root.student.time-text;
                         color: Theme.time-value;
-                        font-size: 1.15rem;
-                        vertical-alignment: center;
+                        font-size: 1.1rem;
                     }
                 }
 
@@ -464,20 +458,20 @@ component AccentStripCard inherits Rectangle {
 
                 HorizontalLayout {
                     spacing: 6px;
+                    cross-axis-alignment: center;
+
                     Text {
                         text: @tr("POINTS");
                         color: Theme.label;
                         font-size: 0.9rem;
                         letter-spacing: 0.07rem;
-                        vertical-alignment: center;
                     }
 
                     Text {
                         text: root.student.points-text;
                         color: root.student.selected ? Theme.points-green : Theme.points-amber;
-                        font-size: 1.15rem;
+                        font-size: 1.1rem;
                         font-weight: 600;
-                        vertical-alignment: center;
                     }
                 }
             }
@@ -491,7 +485,7 @@ export component MainWindow inherits Window {
     title: "Keystroke";
     forward-focus: search;
 
-    in property <ViewMode> view-mode: ViewMode.comfortable;
+    in property <ViewMode> view-mode: comfortable;
     in-out property <[Student]> students: [
         {
             name: "Ava Thompson",
@@ -677,8 +671,8 @@ export component MainWindow inherits Window {
                     placeholder-text: @tr("Search");
                 }
 
-                ComboBox {
-                    model: ["All students", "In current class", "Only selected"];
+                filter := ComboBox {
+                    model: [@tr("All students"), @tr("In current class"), @tr("Only selected")];
                     horizontal-stretch: 0;
                 }
             }
@@ -780,6 +774,8 @@ export component MainWindow inherits Window {
 
         HorizontalBox {
             padding: StyleMetrics.layout-padding * 2;
+            alignment: space-between;
+            cross-axis-alignment: center;
 
             Button {
                 text: @tr("Refresh");
@@ -790,10 +786,7 @@ export component MainWindow inherits Window {
             Text {
                 text: root.selection-count + @tr(" selected");
                 color: Theme.summary-text;
-                font-size: 1.2rem;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
+                font-size: 0.9rem;
             }
 
             Button {
