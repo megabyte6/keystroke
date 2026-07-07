@@ -1,0 +1,73 @@
+name: Build artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+            os: windows-latest
+          - target: aarch64-pc-windows-msvc
+            platform: windows-aarch64
+            os: windows-11-arm
+          - target: aarch64-apple-darwin
+            platform: macos-aarch64
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-gnu
+            platform: linux-aarch64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libdbus-1-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: echo "version=$(grep '^version = ' Cargo.toml | head -n1 | cut -d '"' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          name=keystroke-${{ steps.version.outputs.version }}-${{ matrix.platform }}.exe
+          cp target/${{ matrix.target }}/release/keystroke.exe "$name"
+          echo "artifact=$name" >> "$GITHUB_ENV"
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          name=keystroke-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+          cp target/${{ matrix.target }}/release/keystroke "$name"
+          echo "artifact=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.artifact }}
+          path: ${{ env.artifact }}
