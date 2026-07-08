@@ -71,3 +71,4 @@ jobs:
         with:
           name: ${{ env.artifact }}
           path: ${{ env.artifact }}
+          archive: false
