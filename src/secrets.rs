@@ -1,7 +1,7 @@
 use keyring_core::Entry;
 
 #[cfg(target_os = "macos")]
-use apple_native_keyring_store::Store as PlatformStore;
+use apple_native_keyring_store::keychain::Store as PlatformStore;
 #[cfg(target_os = "linux")]
 use dbus_secret_service_keyring_store::Store as PlatformStore;
 #[cfg(target_os = "windows")]
