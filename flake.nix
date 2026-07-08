@@ -80,7 +80,7 @@
       }
     );
 
-    formatter = forEachSupportedSystem ({pkgs, ...}: pkgs.nixfmt);
+    formatter = forEachSupportedSystem ({pkgs, ...}: pkgs.alejandra);
 
     packages = forEachSupportedSystem (
       {
