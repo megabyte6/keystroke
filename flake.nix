@@ -35,8 +35,6 @@
         wayland
         libxkbcommon
         libGL
-
-        dbus
       ];
   in {
     overlays.default = final: prev: {
