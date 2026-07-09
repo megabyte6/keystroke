@@ -24,7 +24,7 @@ export {
 }
 
 global Theme {
-    in-out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    in-out property <bool> dark: Palette.color-scheme == ColorScheme.unknown;
 
     // surfaces
     out property <color> window-bg:   dark ? #1c1c1c : #f4f4f3;

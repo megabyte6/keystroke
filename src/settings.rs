@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
-use crate::{APP_NAME, api::typing::TypingClass};
+use crate::{APP_NAME, ViewMode, api::typing::TypingClass};
 
 const FILENAME: &str = "settings.toml";
 
@@ -30,17 +30,9 @@ pub enum Theme {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CardType {
-    #[default]
-    Comfortable,
-    Compact,
-    AccentStrip,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Settings {
     pub theme: Theme,
-    pub card_type: CardType,
+    pub view_mode: ViewMode,
     pub typing_username: Option<String>,
     pub typing_class: Option<TypingClass>,
 
