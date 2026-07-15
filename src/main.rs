@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use slint::LogicalSize;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, SetOnce};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -33,21 +33,18 @@ async fn main() {
     secrets::init_keyring();
     info!("initialized keyring");
 
-    let typing_session: Arc<RwLock<Option<Session>>> = Arc::new(RwLock::new(None));
+    let typing_session = Arc::new(SetOnce::new());
     tokio::spawn({
         let typing_session = Arc::clone(&typing_session);
         let settings = Arc::clone(&settings);
         async move {
-            let session = Session::login(&*settings.read().await)
-                .await
-                .map_err(|error| {
-                    warn!(%error, "failed to create typing.com session");
-                    error
-                })
-                .ok();
-
-            *typing_session.write().await = session;
-            info!("logged into typing.com api");
+            match Session::login(&*settings.read().await).await {
+                Ok(session) => {
+                    let _ = typing_session.set(session);
+                    info!("logged into typing.com api");
+                }
+                Err(error) => warn!(%error, "failed to create typing.com session"),
+            }
         }
     });
 
@@ -84,7 +81,7 @@ fn quit() {
 
 struct AppContext {
     settings: Arc<RwLock<Settings>>,
-    typing_session: Arc<RwLock<Option<Session>>>,
+    typing_session: Arc<SetOnce<Session>>,
 }
 
 struct AppWindows {
