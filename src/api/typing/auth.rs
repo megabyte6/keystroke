@@ -6,7 +6,7 @@ use std::{
 use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
 use reqwest::Client;
 use serde_json::{Value, json};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::secrets::{self, SecretService};
 
@@ -33,6 +33,8 @@ struct Token {
 #[derive(Debug, Clone)]
 pub struct Auth {
     token: Arc<RwLock<Token>>,
+    // serializes refreshes so concurrent callers don't all hit the login endpoint at once
+    refresh_lock: Arc<Mutex<()>>,
 }
 
 impl Auth {
@@ -43,21 +45,25 @@ impl Auth {
                 // set to epoch so first access with refresh
                 expiration: UNIX_EPOCH,
             })),
+            refresh_lock: Arc::new(Mutex::new(())),
         }
     }
 
     /// Return a valid bearer token. If the cached token is expired (or empty)
     /// this will fetch a fresh one from the Typing.com auth endpoint.
     pub async fn token(&self, client: &Client, username: &str, teacher_id: u64) -> Result<String> {
-        {
-            let token = self.token.read().await;
-            // return if token is fresh
-            if SystemTime::now() < token.expiration {
-                return Ok(token.value.clone());
-            }
+        if let Some(value) = self.fresh_token().await {
+            return Ok(value);
         }
 
-        // token was not fresh so we need to acquire a new one
+        // token was not fresh; only one caller should refresh at a time
+        let _guard = self.refresh_lock.lock().await;
+
+        // another caller may have refreshed while we waited for the lock
+        if let Some(value) = self.fresh_token().await {
+            return Ok(value);
+        }
+
         let password = secrets::load_password(SecretService::TypingCom, username)?;
         let response_data: Value = client
             .post("https://api.typing.com/teachers/auth/login")
@@ -86,15 +92,16 @@ impl Auth {
             expiration = adjustment;
         }
 
-        {
-            let mut token = self.token.write().await;
-            // re-check after lock since another thread may have refreshed already
-            if token.expiration <= SystemTime::now() {
-                token.value = access_token.to_owned();
-                token.expiration = expiration;
-            }
-            Ok(token.value.clone())
-        }
+        let mut token = self.token.write().await;
+        token.value = access_token.to_owned();
+        token.expiration = expiration;
+        Ok(token.value.clone())
+    }
+
+    /// Return the cached token if it's still fresh, without attempting a refresh.
+    async fn fresh_token(&self) -> Option<String> {
+        let token = self.token.read().await;
+        (SystemTime::now() < token.expiration).then(|| token.value.clone())
     }
 }
 
