@@ -8,6 +8,7 @@ use reqwest::Client;
 use serde_json::{Value, json};
 use tokio::sync::{Mutex, RwLock};
 
+use super::BASE_URL;
 use crate::secrets::{self, SecretService};
 
 type Result<T> = std::result::Result<T, Error>;
@@ -24,10 +25,20 @@ pub enum Error {
     MissingJsonField { field: String, json: String },
 }
 
-#[derive(Debug)]
 struct Token {
     value: String,
     expiration: SystemTime,
+}
+
+// manual impl so the bearer token never gets printed if a `Session`/`Auth`/`Token`
+// ends up in a `{:?}`/`tracing` log line (e.g. `debug!(?session, ...)`)
+impl std::fmt::Debug for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Token")
+            .field("value", &"<redacted>")
+            .field("expiration", &self.expiration)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -66,8 +77,7 @@ impl Auth {
 
         let password = secrets::load_password(SecretService::TypingCom, username)?;
         let response_data: Value = client
-            .post("https://api.typing.com/teachers/auth/login")
-            .header("X-App-Site", "typing")
+            .post(format!("{BASE_URL}/auth/login"))
             .json(&json!({
                 "teacher_id": teacher_id,
                 "password": password,

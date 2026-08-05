@@ -1,6 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
-use reqwest::Client;
+use reqwest::{
+    Client,
+    header::{HeaderMap, HeaderValue},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use time::OffsetDateTime;
@@ -9,6 +12,8 @@ use tokio::sync::RwLock;
 use crate::{api::typing::auth::Auth, settings::Settings};
 
 mod auth;
+
+const BASE_URL: &str = "https://api.typing.com/teachers";
 
 type TeacherId = u64;
 type ClassId = u64;
@@ -51,7 +56,9 @@ struct SessionState {
 
 impl Session {
     pub async fn login(settings: &Settings) -> Result<Session> {
-        let client = Client::new();
+        let mut headers = HeaderMap::new();
+        headers.insert("X-App-Site", HeaderValue::from_static("typing"));
+        let client = Client::builder().default_headers(headers).build()?;
 
         let username = settings
             .typing_username
@@ -62,8 +69,7 @@ impl Session {
             .clone()
             .ok_or(Error::SelectedClassNotSet)?;
         let response_data: Value = client
-            .post("https://api.typing.com/teachers/auth/find")
-            .header("X-App-Site", "typing")
+            .post(format!("{BASE_URL}/auth/find"))
             .json(&json!({
                 "username": username
             }))
@@ -71,13 +77,7 @@ impl Session {
             .await?
             .json()
             .await?;
-        let teacher_id = response_data
-            .pointer("/users/0/teacher_id")
-            .and_then(|val| val.as_u64())
-            .ok_or(Error::MissingJsonField {
-                field: "teacher_id".to_owned(),
-                json: response_data.to_string(),
-            })?;
+        let teacher_id = response_data.require("/users/0/teacher_id", Value::as_u64)?;
 
         let session = Session {
             client,
@@ -95,99 +95,63 @@ impl Session {
     }
 
     pub async fn auth_token(&self) -> Result<String> {
-        let (username, teacher_id) = {
-            let state = self.state.read().await;
-            (state.teacher.username.clone(), state.teacher.id)
-        };
+        let username = self.teacher_username().await;
+        let teacher_id = self.teacher_id().await;
 
         // delegate to the auth module. it will fetch and cache/refresh the token as needed
         Ok(self.auth.token(&self.client, &username, teacher_id).await?)
     }
 
+    async fn teacher_id(&self) -> TeacherId {
+        self.state.read().await.teacher.id
+    }
+
+    async fn teacher_username(&self) -> String {
+        self.state.read().await.teacher.username.clone()
+    }
+
+    async fn class_id(&self) -> ClassId {
+        self.state.read().await.class.id
+    }
+
     pub async fn get_classes(&self) -> Result<Vec<Result<TypingClass>>> {
-        let teacher_id = self.state.read().await.teacher.id;
+        let teacher_id = self.teacher_id().await;
         let token = self.auth_token().await?;
         let response_data: Value = self
             .client
-            .get(format!(
-                "https://api.typing.com/teachers/teachers/{teacher_id}/classes"
-            ))
+            .get(format!("{BASE_URL}/teachers/{teacher_id}/classes"))
             .bearer_auth(token)
-            .header("X-App-Site", "typing")
             .send()
             .await?
             .json()
             .await?;
-        let class_data = response_data
-            .pointer("/data")
-            .and_then(|val| val.as_array())
-            .ok_or(Error::MissingJsonField {
-                field: "/data".to_owned(),
-                json: response_data.to_string(),
-            })?;
+        let class_data = response_data.require("/data", Value::as_array)?;
         Ok(class_data
             .iter()
             .map(|val| {
-                let id = val
-                    .get("id")
-                    .and_then(|v| v.as_u64())
-                    .ok_or(Error::MissingJsonField {
-                        field: "id".to_owned(),
-                        json: response_data.to_string(),
-                    })?;
-                let name = val
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .ok_or(Error::MissingJsonField {
-                        field: "name".to_owned(),
-                        json: response_data.to_string(),
-                    })?
-                    .to_owned();
+                let id = val.require("/id", Value::as_u64)?;
+                let name = val.require("/name", Value::as_str)?.to_owned();
                 Ok(TypingClass { id, name })
             })
             .collect())
     }
 
     pub async fn get_students(&self) -> Result<Vec<Result<Student>>> {
-        let class_id = self.state.read().await.class.id;
+        let class_id = self.class_id().await;
         let token = self.auth_token().await?;
         let response_data: Value = self
             .client
-            .get(format!(
-                "https://api.typing.com/teachers/sections/{class_id}?include=users"
-            ))
+            .get(format!("{BASE_URL}/sections/{class_id}?include=users"))
             .bearer_auth(token)
-            .header("X-App-Site", "typing")
             .send()
             .await?
             .json()
             .await?;
-        let student_data = response_data
-            .pointer("/data/students")
-            .and_then(|val| val.as_array())
-            .ok_or(Error::MissingJsonField {
-                field: "/data/students".to_owned(),
-                json: response_data.to_string(),
-            })?;
+        let student_data = response_data.require("/data/students", Value::as_array)?;
         Ok(student_data
             .iter()
             .map(|val| {
-                let first_name = val
-                    .get("first_name")
-                    .and_then(|v| v.as_str())
-                    .ok_or(Error::MissingJsonField {
-                        field: "first_name".to_owned(),
-                        json: response_data.to_string(),
-                    })?
-                    .to_owned();
-                let last_name = val
-                    .get("last_name")
-                    .and_then(|v| v.as_str())
-                    .ok_or(Error::MissingJsonField {
-                        field: "last_name".to_owned(),
-                        json: response_data.to_string(),
-                    })?
-                    .to_owned();
+                let (first_name, last_name) = parse_student_name(val)?;
                 Ok(Student {
                     first_name,
                     last_name,
@@ -201,10 +165,8 @@ impl Session {
         let token = self.auth_token().await?;
         let now = OffsetDateTime::now_utc();
         let start = now - Duration::from_hours(1);
-        let (class_id, teacher_id) = {
-            let state = self.state.read().await;
-            (state.class.id, state.teacher.id)
-        };
+        let class_id = self.class_id().await;
+        let teacher_id = self.teacher_id().await;
         let response_data: Value = self
             .client
             .post("https://www.typing.com/apiv1/teacher/reports/run")
@@ -222,39 +184,13 @@ impl Session {
             .await?
             .json()
             .await?;
-        let student_data = response_data
-            .pointer("/data")
-            .and_then(|val| val.as_array())
-            .ok_or(Error::MissingJsonField {
-                field: "/data".to_owned(),
-                json: response_data.to_string(),
-            })?;
+        let student_data = response_data.require("/data", Value::as_array)?;
         Ok(student_data
             .iter()
             .map(|val| {
-                let first_name = val
-                    .get("first_name")
-                    .and_then(|v| v.as_str())
-                    .ok_or(Error::MissingJsonField {
-                        field: "first_name".to_owned(),
-                        json: response_data.to_string(),
-                    })?
-                    .to_owned();
-                let last_name = val
-                    .get("last_name")
-                    .and_then(|val| val.as_str())
-                    .ok_or(Error::MissingJsonField {
-                        field: "last_name".to_owned(),
-                        json: response_data.to_string(),
-                    })?
-                    .to_owned();
+                let (first_name, last_name) = parse_student_name(val)?;
                 let time = val
-                    .get("time")
-                    .and_then(|v| v.as_str())
-                    .ok_or(Error::MissingJsonField {
-                        field: "time".to_owned(),
-                        json: response_data.to_string(),
-                    })?
+                    .require("/time", Value::as_str)?
                     .parse::<u64>()
                     .map(Duration::from_secs)?;
                 Ok(Student {
@@ -284,4 +220,33 @@ pub struct Student {
     first_name: String,
     last_name: String,
     time: Option<Duration>,
+}
+
+trait JsonFieldExt {
+    fn require<'a, T>(
+        &'a self,
+        pointer: &str,
+        extract: impl FnOnce(&'a Value) -> Option<T>,
+    ) -> Result<T>;
+}
+
+impl JsonFieldExt for Value {
+    fn require<'a, T>(
+        &'a self,
+        pointer: &str,
+        extract: impl FnOnce(&'a Value) -> Option<T>,
+    ) -> Result<T> {
+        self.pointer(pointer)
+            .and_then(extract)
+            .ok_or_else(|| Error::MissingJsonField {
+                field: pointer.to_owned(),
+                json: self.to_string(),
+            })
+    }
+}
+
+fn parse_student_name(val: &Value) -> Result<(String, String)> {
+    let first_name = val.require("/first_name", Value::as_str)?.to_owned();
+    let last_name = val.require("/last_name", Value::as_str)?.to_owned();
+    Ok((first_name, last_name))
 }
