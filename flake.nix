@@ -87,7 +87,7 @@
       }: {
         keystroke = pkgs.rustPlatform.buildRustPackage {
           pname = "keystroke";
-          version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+          version = (fromTOML (builtins.readFile ./Cargo.toml)).package.version;
 
           src = ./.;
 
